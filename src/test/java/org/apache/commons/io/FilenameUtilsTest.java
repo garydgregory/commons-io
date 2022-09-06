@@ -21,7 +21,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
 
 import java.io.BufferedOutputStream;
 import java.io.File;
@@ -67,7 +66,7 @@ public class FilenameUtilsTest {
             throw new IOException("Cannot create file " + testFile1
                     + " as the parent directory does not exist");
         }
-        try (final BufferedOutputStream output3 =
+        try (BufferedOutputStream output3 =
                 new BufferedOutputStream(Files.newOutputStream(testFile1.toPath()))) {
             TestUtils.generateTestData(output3, testFile1Size);
         }
@@ -75,7 +74,7 @@ public class FilenameUtilsTest {
             throw new IOException("Cannot create file " + testFile2
                     + " as the parent directory does not exist");
         }
-        try (final BufferedOutputStream output2 =
+        try (BufferedOutputStream output2 =
                 new BufferedOutputStream(Files.newOutputStream(testFile2.toPath()))) {
             TestUtils.generateTestData(output2, testFile2Size);
         }
@@ -83,7 +82,7 @@ public class FilenameUtilsTest {
             throw new IOException("Cannot create file " + testFile1
                     + " as the parent directory does not exist");
         }
-        try (final BufferedOutputStream output1 =
+        try (BufferedOutputStream output1 =
                 new BufferedOutputStream(Files.newOutputStream(testFile1.toPath()))) {
             TestUtils.generateTestData(output1, testFile1Size);
         }
@@ -91,7 +90,7 @@ public class FilenameUtilsTest {
             throw new IOException("Cannot create file " + testFile2
                     + " as the parent directory does not exist");
         }
-        try (final BufferedOutputStream output =
+        try (BufferedOutputStream output =
                 new BufferedOutputStream(Files.newOutputStream(testFile2.toPath()))) {
             TestUtils.generateTestData(output, testFile2Size);
         }
@@ -136,9 +135,8 @@ public class FilenameUtilsTest {
         assertEquals("~user" + SEP, FilenameUtils.concat("a/b/", "~user"));
     }
 
-    //-----------------------------------------------------------------------
     @Test
-    public void testDirectoryContains() throws IOException {
+    public void testDirectoryContains() {
         assertTrue(FilenameUtils.directoryContains("/foo", "/foo/bar"));
         assertTrue(FilenameUtils.directoryContains("/foo/", "/foo/bar"));
         assertTrue(FilenameUtils.directoryContains("C:\\foo", "C:\\foo\\bar"));
@@ -229,12 +227,8 @@ public class FilenameUtilsTest {
     }
 
     @Test
-    public void testGetBaseName_with_nullByte() {
-        try {
-            assertEquals("file.txt", FilenameUtils.getBaseName("fil\u0000e.txt.bak"));
-        } catch (final IllegalArgumentException ignore) {
-
-        }
+    public void testGetBaseName_with_null_character() {
+        assertThrows(IllegalArgumentException.class, () -> FilenameUtils.getBaseName("fil\u0000e.txt.bak"));
     }
 
     @Test
@@ -419,7 +413,7 @@ public class FilenameUtilsTest {
 
 
     @Test
-    public void testGetPath_with_nullbyte() {
+    public void testGetPath_with_null_character() {
         assertThrows(IllegalArgumentException.class, () -> FilenameUtils.getPath("~user/a/\u0000b/c.txt"));
     }
 
@@ -461,12 +455,8 @@ public class FilenameUtilsTest {
     }
 
     @Test
-    public void testGetPathNoEndSeparator_with_null_byte() {
-        try {
-            assertEquals("a/b", FilenameUtils.getPathNoEndSeparator("~user/a\u0000/b/c.txt"));
-        } catch (final IllegalArgumentException ignore) {
-
-        }
+    public void testGetPathNoEndSeparator_with_null_character() {
+        assertThrows(IllegalArgumentException.class, () -> FilenameUtils.getPathNoEndSeparator("~user/a\u0000/b/c.txt"));
     }
 
     @Test
@@ -515,12 +505,8 @@ public class FilenameUtilsTest {
     }
 
     @Test
-    public void testGetPrefix_with_nullbyte() {
-        try {
-            assertEquals("~user\\", FilenameUtils.getPrefix("~u\u0000ser\\a\\b\\c.txt"));
-        } catch (final IllegalArgumentException ignore) {
-
-        }
+    public void testGetPrefix_with_null_character() {
+        assertThrows(IllegalArgumentException.class, () -> FilenameUtils.getPrefix("~u\u0000ser\\a\\b\\c.txt"));
     }
 
     @Test
@@ -622,11 +608,7 @@ public class FilenameUtilsTest {
 
     @Test
     public void testInjectionFailure() {
-        try {
-            assertEquals("c", FilenameUtils.getName("a\\b\\\u0000c"));
-        } catch (final IllegalArgumentException ignore) {
-
-        }
+        assertThrows(IllegalArgumentException.class, () -> FilenameUtils.getName("a\\b\\\u0000c"));
     }
 
     @Test
@@ -664,11 +646,7 @@ public class FilenameUtilsTest {
 
     @Test
     public void testIsExtension_injection() {
-        try {
-            FilenameUtils.isExtension("a.b\\fi\u0000le.txt", "TXT");
-            fail("Should throw IAE");
-        } catch (final IllegalArgumentException ignore) {
-        }
+        assertThrows(IllegalArgumentException.class, () -> FilenameUtils.isExtension("a.b\\fi\u0000le.txt", "TXT"));
     }
 
     @Test
@@ -957,16 +935,9 @@ public class FilenameUtilsTest {
     /**
      */
     @Test
-    public void testNormalize_with_nullbytes() {
-        try {
-            assertEquals("a" + SEP + "b" + SEP + "c.txt", FilenameUtils.normalize("a\\b/c\u0000.txt"));
-        } catch (final IllegalArgumentException ignore) {
-        }
-
-        try {
-            assertEquals("a" + SEP + "b" + SEP + "c.txt", FilenameUtils.normalize("\u0000a\\b/c.txt"));
-        } catch (final IllegalArgumentException ignore) {
-        }
+    public void testNormalize_with_null_character() {
+        assertThrows(IllegalArgumentException.class, () -> FilenameUtils.normalize("a\\b/c\u0000.txt"));
+        assertThrows(IllegalArgumentException.class, () -> FilenameUtils.normalize("\u0000a\\b/c.txt"));
     }
 
     @Test

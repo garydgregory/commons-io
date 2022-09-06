@@ -132,7 +132,7 @@ public abstract class TestUtils {
                 while (-1 != n0) {
                     n0 = is0.read(buf0);
                     n1 = is1.read(buf1);
-                    assertTrue((n0 == n1),
+                    assertTrue(n0 == n1,
                             "The files " + f0 + " and " + f1 +
                             " have differing number of bytes available (" + n0 + " vs " + n1 + ")");
 
@@ -170,7 +170,7 @@ public abstract class TestUtils {
             throw new IOException("Cannot create file " + file
                     + " as the parent directory does not exist");
         }
-        try (final BufferedOutputStream output =
+        try (BufferedOutputStream output =
                 new BufferedOutputStream(Files.newOutputStream(file.toPath()))) {
             generateTestData(output, size);
         }
@@ -180,7 +180,7 @@ public abstract class TestUtils {
         if (file.getParentFile() != null && !file.getParentFile().exists()) {
             throw new IOException("Cannot create file " + file + " as the parent directory does not exist");
         }
-        try (final PrintWriter output = new PrintWriter(new OutputStreamWriter(Files.newOutputStream(file.toPath()), StandardCharsets.UTF_8))) {
+        try (PrintWriter output = new PrintWriter(new OutputStreamWriter(Files.newOutputStream(file.toPath()), StandardCharsets.UTF_8))) {
             for (final String element : data) {
                 output.println(element);
             }
@@ -194,14 +194,14 @@ public abstract class TestUtils {
     }
 
     public static void generateTestData(final File file, final long size) throws IOException, FileNotFoundException {
-        try (final BufferedOutputStream output = new BufferedOutputStream(Files.newOutputStream(file.toPath()))) {
+        try (BufferedOutputStream output = new BufferedOutputStream(Files.newOutputStream(file.toPath()))) {
             generateTestData(output, size);
         }
     }
 
     public static byte[] generateTestData(final long size) {
         try {
-            try (final ByteArrayOutputStream baout = new ByteArrayOutputStream()) {
+            try (ByteArrayOutputStream baout = new ByteArrayOutputStream()) {
                 generateTestData(baout, size);
                 return baout.toByteArray();
             }
@@ -214,7 +214,7 @@ public abstract class TestUtils {
         for (int i = 0; i < size; i++) {
             // output.write((byte)'X');
             // nice varied byte pattern compatible with Readers and Writers
-            out.write((byte) ((i % 127) + 1));
+            out.write((byte) (i % 127 + 1));
         }
     }
 

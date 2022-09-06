@@ -23,6 +23,7 @@ import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Stream;
 
 import org.apache.commons.io.IOCase;
 
@@ -71,7 +72,7 @@ public class NameFileFilter extends AbstractFileFilter implements Serializable {
     /** The file names to search for */
     private final String[] names;
 
-    /** Whether the comparison is case sensitive. */
+    /** Whether the comparison is case-sensitive. */
     private final IOCase ioCase;
 
     /**
@@ -90,11 +91,11 @@ public class NameFileFilter extends AbstractFileFilter implements Serializable {
      *
      * @param names  the names to allow, must not be null
      * @param ioCase  how to handle case sensitivity, null means case-sensitive
-     * @throws IllegalArgumentException if the name list is null
+     * @throws NullPointerException if the name list is null
      * @throws ClassCastException if the list does not contain Strings
      */
     public NameFileFilter(final List<String> names, final IOCase ioCase) {
-        requireNonNull(names, "names");
+        Objects.requireNonNull(names, "names");
         this.names = names.toArray(EMPTY_STRING_ARRAY);
         this.ioCase = toIOCase(ioCase);
     }
@@ -128,12 +129,10 @@ public class NameFileFilter extends AbstractFileFilter implements Serializable {
      *
      * @param name  the name to allow, must not be null
      * @param ioCase  how to handle case sensitivity, null means case-sensitive
-     * @throws IllegalArgumentException if the name is null
+     * @throws NullPointerException if the name is null
      */
     public NameFileFilter(final String name, final IOCase ioCase) {
-        if (name == null) {
-            throw new IllegalArgumentException("The wildcard must not be null");
-        }
+        Objects.requireNonNull(name, "name");
         this.names = new String[] {name};
         this.ioCase = toIOCase(ioCase);
     }
@@ -143,12 +142,10 @@ public class NameFileFilter extends AbstractFileFilter implements Serializable {
      *
      * @param names  the names to allow, must not be null
      * @param ioCase  how to handle case sensitivity, null means case-sensitive
-     * @throws IllegalArgumentException if the names array is null
+     * @throws NullPointerException if the names array is null
      */
     public NameFileFilter(final String[] names, final IOCase ioCase) {
-        if (names == null) {
-            throw new IllegalArgumentException("The array of names must not be null");
-        }
+        Objects.requireNonNull(names, "names");
         this.names = names.clone();
         this.ioCase = toIOCase(ioCase);
     }
@@ -189,12 +186,7 @@ public class NameFileFilter extends AbstractFileFilter implements Serializable {
     }
 
     private boolean acceptBaseName(final String baseName) {
-        for (final String testName : names) {
-            if (ioCase.checkEquals(baseName, testName)) {
-                return true;
-            }
-        }
-        return false;
+        return Stream.of(names).anyMatch(testName -> ioCase.checkEquals(baseName, testName));
     }
 
     private IOCase toIOCase(final IOCase ioCase) {
@@ -211,14 +203,7 @@ public class NameFileFilter extends AbstractFileFilter implements Serializable {
         final StringBuilder buffer = new StringBuilder();
         buffer.append(super.toString());
         buffer.append("(");
-        if (names != null) {
-            for (int i = 0; i < names.length; i++) {
-                if (i > 0) {
-                    buffer.append(",");
-                }
-                buffer.append(names[i]);
-            }
-        }
+        append(names, buffer);
         buffer.append(")");
         return buffer.toString();
     }

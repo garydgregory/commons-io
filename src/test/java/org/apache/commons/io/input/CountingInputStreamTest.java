@@ -17,7 +17,7 @@
 package org.apache.commons.io.input;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.fail;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -34,7 +34,7 @@ public class CountingInputStreamTest {
     @Test
     public void testCounting() throws Exception {
         final String text = "A piece of text";
-        try (final CountingInputStream cis = new CountingInputStream(new StringInputStream(text))) {
+        try (CountingInputStream cis = new CountingInputStream(new StringInputStream(text))) {
 
             // have to declare this larger as we're going to read
             // off the end of the stream and input stream seems
@@ -67,7 +67,7 @@ public class CountingInputStreamTest {
     @Test
     public void testEOF1() throws Exception {
         final ByteArrayInputStream bais = new ByteArrayInputStream(new byte[2]);
-        try (final CountingInputStream cis = new CountingInputStream(bais)) {
+        try (CountingInputStream cis = new CountingInputStream(bais)) {
 
             int found = cis.read();
             assertEquals(0, found);
@@ -84,7 +84,7 @@ public class CountingInputStreamTest {
     @Test
     public void testEOF2() throws Exception {
         final ByteArrayInputStream bais = new ByteArrayInputStream(new byte[2]);
-        try (final CountingInputStream cis = new CountingInputStream(bais)) {
+        try (CountingInputStream cis = new CountingInputStream(bais)) {
 
             final byte[] result = new byte[10];
 
@@ -97,7 +97,7 @@ public class CountingInputStreamTest {
     @Test
     public void testEOF3() throws Exception {
         final ByteArrayInputStream bais = new ByteArrayInputStream(new byte[2]);
-        try (final CountingInputStream cis = new CountingInputStream(bais)) {
+        try (CountingInputStream cis = new CountingInputStream(bais)) {
 
             final byte[] result = new byte[10];
 
@@ -118,18 +118,8 @@ public class CountingInputStreamTest {
 
         // Test integer methods
         IOUtils.consume(cis);
-        try {
-            cis.getCount();
-            fail("Expected getCount() to throw an ArithmeticException");
-        } catch (final ArithmeticException ae) {
-            // expected result
-        }
-        try {
-            cis.resetCount();
-            fail("Expected resetCount() to throw an ArithmeticException");
-        } catch (final ArithmeticException ae) {
-            // expected result
-        }
+        assertThrows(ArithmeticException.class, () -> cis.getCount());
+        assertThrows(ArithmeticException.class, () -> cis.resetCount());
 
         mock.close();
 
@@ -144,7 +134,7 @@ public class CountingInputStreamTest {
         final String text = "A piece of text";
         final byte[] bytes = text.getBytes();
         final ByteArrayInputStream bais = new ByteArrayInputStream(bytes);
-        try (final CountingInputStream cis = new CountingInputStream(bais)) {
+        try (CountingInputStream cis = new CountingInputStream(bais)) {
 
             final byte[] result = new byte[bytes.length];
 
@@ -160,7 +150,7 @@ public class CountingInputStreamTest {
     @Test
     public void testSkipping() throws IOException {
         final String text = "Hello World!";
-        try (final CountingInputStream cis = new CountingInputStream(new StringInputStream(text))) {
+        try (CountingInputStream cis = new CountingInputStream(new StringInputStream(text))) {
 
             assertEquals(6, cis.skip(6));
             assertEquals(6, cis.getCount());
@@ -175,7 +165,7 @@ public class CountingInputStreamTest {
     @Test
     public void testZeroLength1() throws Exception {
         final ByteArrayInputStream bais = new ByteArrayInputStream(IOUtils.EMPTY_BYTE_ARRAY);
-        try (final CountingInputStream cis = new CountingInputStream(bais)) {
+        try (CountingInputStream cis = new CountingInputStream(bais)) {
 
             final int found = cis.read();
             assertEquals(-1, found);
@@ -186,7 +176,7 @@ public class CountingInputStreamTest {
     @Test
     public void testZeroLength2() throws Exception {
         final ByteArrayInputStream bais = new ByteArrayInputStream(IOUtils.EMPTY_BYTE_ARRAY);
-        try (final CountingInputStream cis = new CountingInputStream(bais)) {
+        try (CountingInputStream cis = new CountingInputStream(bais)) {
 
             final byte[] result = new byte[10];
 
@@ -199,7 +189,7 @@ public class CountingInputStreamTest {
     @Test
     public void testZeroLength3() throws Exception {
         final ByteArrayInputStream bais = new ByteArrayInputStream(IOUtils.EMPTY_BYTE_ARRAY);
-        try (final CountingInputStream cis = new CountingInputStream(bais)) {
+        try (CountingInputStream cis = new CountingInputStream(bais)) {
 
             final byte[] result = new byte[10];
 

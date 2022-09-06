@@ -19,6 +19,8 @@ package org.apache.commons.io.filefilter;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.io.File;
+import java.util.Objects;
+import java.util.stream.Stream;
 
 public abstract class IOFileFilterAbstractTest {
 
@@ -94,7 +96,7 @@ public abstract class IOFileFilterAbstractTest {
     }
 
     public static void assertFilenameFiltering(final int testNumber, final IOFileFilter filter, final File file, final boolean expected) {
-        // Assumes file has parent and is not passed as null
+        // Assumes file has a parent and is not passed as null
         assertEquals(expected, filter.accept(file.getParentFile(), file.getName()),
                 "test " + testNumber + " Filter(File, String) " + filter.getClass().getName() + " not " + expected + " for " + file);
     }
@@ -129,18 +131,10 @@ public abstract class IOFileFilterAbstractTest {
     }
 
     public static void resetFalseFilters(final TesterFalseFileFilter[] filters) {
-        for (final TesterFalseFileFilter filter : filters) {
-            if (filter != null) {
-                filter.reset();
-            }
-        }
+        Stream.of(filters).filter(Objects::nonNull).forEach(TesterFalseFileFilter::reset);
     }
 
     public static void resetTrueFilters(final TesterTrueFileFilter[] filters) {
-        for (final TesterTrueFileFilter filter : filters) {
-            if (filter != null) {
-                filter.reset();
-            }
-        }
+        Stream.of(filters).filter(Objects::nonNull).forEach(TesterTrueFileFilter::reset);
     }
 }

@@ -18,6 +18,7 @@ package org.apache.commons.io;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -246,12 +247,12 @@ public class DirectoryWalkerTestCaseJava4 {
     // Filters
     private static final IOFileFilter dirsFilter = createNameFilter(dirs);
 
-    private static final IOFileFilter iofilesFilter = createNameFilter(ioFiles);
+    private static final IOFileFilter ioFilesFilter = createNameFilter(ioFiles);
 
 
     private static final IOFileFilter outputFilesFilter = createNameFilter(outputFiles);
 
-    private static final IOFileFilter ioDirAndFilesFilter = new OrFileFilter(dirsFilter, iofilesFilter);
+    private static final IOFileFilter ioDirAndFilesFilter = new OrFileFilter(dirsFilter, ioFilesFilter);
 
     private static final IOFileFilter dirsAndFilesFilter = new OrFileFilter(ioDirAndFilesFilter, outputFilesFilter);
 
@@ -405,7 +406,7 @@ public class DirectoryWalkerTestCaseJava4 {
      */
     @Test
     public void testFilterDirAndFile1() {
-        final List<File> results = new TestFileFinder(dirsFilter, iofilesFilter, -1).find(javaDir);
+        final List<File> results = new TestFileFinder(dirsFilter, ioFilesFilter, -1).find(javaDir);
         assertEquals(1 + dirs.length + ioFiles.length, results.size(), "[DirAndFile1] Result Size");
         assertTrue(results.contains(javaDir), "[DirAndFile1] Start Dir");
         checkContainsFiles("[DirAndFile1] Dir", dirs, results);
@@ -441,14 +442,12 @@ public class DirectoryWalkerTestCaseJava4 {
      */
     @Test
     public void testFilterDirAndFile4() {
-        final List<File> results = new TestFileFinder(null, iofilesFilter, -1).find(javaDir);
+        final List<File> results = new TestFileFinder(null, ioFilesFilter, -1).find(javaDir);
         final List resultFiles = filesOnly(results);
         assertEquals(ioFiles.length, resultFiles.size(), "[DirAndFile4] Result Size");
         assertTrue(results.contains(javaDir), "[DirAndFile4] Start Dir");
         checkContainsFiles("[DirAndFile4] File", ioFiles, resultFiles);
     }
-
-    // ------------ Test DirectoryWalker implementation --------------------------
 
     /**
      * test an invalid start directory
@@ -461,8 +460,6 @@ public class DirectoryWalkerTestCaseJava4 {
 
     }
 
-    // ------------ Test DirectoryWalker implementation --------------------------
-
     /**
      * Test Limiting to current directory
      */
@@ -473,10 +470,8 @@ public class DirectoryWalkerTestCaseJava4 {
         assertTrue(results.contains(FileUtils.current()), "Current Dir");
     }
 
-    // ------------ Test DirectoryWalker implementation --------------------------
-
     /**
-     * test an invalid start directory
+     * Test an invalid start directory
      */
     @Test
     public void testMissingStartDirectory() {
@@ -487,12 +482,7 @@ public class DirectoryWalkerTestCaseJava4 {
         assertEquals(1, results.size(), "Result Size");
         assertTrue(results.contains(invalidDir), "Current Dir");
 
-        try {
-            new TestFileFinder(null, -1).find(null);
-            fail("Null start directory didn't throw Exception");
-        } catch (final NullPointerException ignore) {
-            // expected result
-        }
+        assertThrows(NullPointerException.class, () -> new TestFileFinder(null, -1).find(null));
     }
 
     /**

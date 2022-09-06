@@ -21,11 +21,21 @@ import static org.apache.commons.io.file.CounterAssertions.assertCounts;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.io.File;
 import java.io.IOException;
+import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.attribute.BasicFileAttributes;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
@@ -33,6 +43,9 @@ import org.apache.commons.io.filefilter.AndFileFilter;
 import org.apache.commons.io.filefilter.DirectoryFileFilter;
 import org.apache.commons.io.filefilter.EmptyFileFilter;
 import org.apache.commons.io.filefilter.PathVisitorFileFilter;
+import org.apache.commons.io.filefilter.TrueFileFilter;
+import org.apache.commons.io.function.IOBiFunction;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -47,12 +60,40 @@ public class AccumulatorPathVisitorTest {
         // @formatter:off
         return Stream.of(
             Arguments.of((Supplier<AccumulatorPathVisitor>) AccumulatorPathVisitor::withLongCounters),
-            Arguments.of((Supplier<AccumulatorPathVisitor>) AccumulatorPathVisitor::withBigIntegerCounters));
+            Arguments.of((Supplier<AccumulatorPathVisitor>) AccumulatorPathVisitor::withBigIntegerCounters),
+            Arguments.of((Supplier<AccumulatorPathVisitor>) () ->
+                AccumulatorPathVisitor.withBigIntegerCounters(TrueFileFilter.INSTANCE, TrueFileFilter.INSTANCE)));
+        // @formatter:on
+    }
+
+    static Stream<Arguments> testParametersIgnoreFailures() {
+        // @formatter:off
+        return Stream.of(
+            Arguments.of((Supplier<AccumulatorPathVisitor>) () -> new AccumulatorPathVisitor(
+                Counters.bigIntegerPathCounters(),
+                CountingPathVisitor.defaultDirFilter(),
+                CountingPathVisitor.defaultFileFilter(),
+                IOBiFunction.noop())));
         // @formatter:on
     }
 
     @TempDir
-    File tempDirFile;
+    Path tempDirPath;
+
+    /**
+     * Tests the 0-argument constructor.
+     */
+    @Test
+    public void test0ArgConstructor() throws IOException {
+        final AccumulatorPathVisitor accPathVisitor = new AccumulatorPathVisitor();
+        final PathVisitorFileFilter countingFileFilter = new PathVisitorFileFilter(accPathVisitor);
+        Files.walkFileTree(tempDirPath, new AndFileFilter(countingFileFilter, DirectoryFileFilter.INSTANCE, EmptyFileFilter.EMPTY));
+        assertCounts(0, 0, 0, accPathVisitor.getPathCounters());
+        assertEquals(1, accPathVisitor.getDirList().size());
+        assertTrue(accPathVisitor.getFileList().isEmpty());
+        assertEquals(accPathVisitor, accPathVisitor);
+        assertEquals(accPathVisitor.hashCode(), accPathVisitor.hashCode());
+    }
 
     /**
      * Tests an empty folder.
@@ -60,14 +101,14 @@ public class AccumulatorPathVisitorTest {
     @ParameterizedTest
     @MethodSource("testParameters")
     public void testEmptyFolder(final Supplier<AccumulatorPathVisitor> supplier) throws IOException {
-        final Path tempDir = tempDirFile.toPath();
         final AccumulatorPathVisitor accPathVisitor = supplier.get();
         final PathVisitorFileFilter countingFileFilter = new PathVisitorFileFilter(accPathVisitor);
-        Files.walkFileTree(tempDir,
-            new AndFileFilter(countingFileFilter, DirectoryFileFilter.INSTANCE, EmptyFileFilter.EMPTY));
+        Files.walkFileTree(tempDirPath, new AndFileFilter(countingFileFilter, DirectoryFileFilter.INSTANCE, EmptyFileFilter.EMPTY));
         assertCounts(1, 0, 0, accPathVisitor.getPathCounters());
         assertEquals(1, accPathVisitor.getDirList().size());
         assertTrue(accPathVisitor.getFileList().isEmpty());
+        assertEquals(accPathVisitor, accPathVisitor);
+        assertEquals(accPathVisitor.hashCode(), accPathVisitor.hashCode());
     }
 
     /**
@@ -78,11 +119,12 @@ public class AccumulatorPathVisitorTest {
     public void testFolders1FileSize0(final Supplier<AccumulatorPathVisitor> supplier) throws IOException {
         final AccumulatorPathVisitor accPathVisitor = supplier.get();
         final PathVisitorFileFilter countingFileFilter = new PathVisitorFileFilter(accPathVisitor);
-        Files.walkFileTree(Paths.get("src/test/resources/org/apache/commons/io/dirs-1-file-size-0"),
-            countingFileFilter);
+        Files.walkFileTree(Paths.get("src/test/resources/org/apache/commons/io/dirs-1-file-size-0"), countingFileFilter);
         assertCounts(1, 1, 0, accPathVisitor.getPathCounters());
         assertEquals(1, accPathVisitor.getDirList().size());
         assertEquals(1, accPathVisitor.getFileList().size());
+        assertEquals(accPathVisitor, accPathVisitor);
+        assertEquals(accPathVisitor.hashCode(), accPathVisitor.hashCode());
     }
 
     /**
@@ -93,11 +135,12 @@ public class AccumulatorPathVisitorTest {
     public void testFolders1FileSize1(final Supplier<AccumulatorPathVisitor> supplier) throws IOException {
         final AccumulatorPathVisitor accPathVisitor = supplier.get();
         final PathVisitorFileFilter countingFileFilter = new PathVisitorFileFilter(accPathVisitor);
-        Files.walkFileTree(Paths.get("src/test/resources/org/apache/commons/io/dirs-1-file-size-1"),
-            countingFileFilter);
+        Files.walkFileTree(Paths.get("src/test/resources/org/apache/commons/io/dirs-1-file-size-1"), countingFileFilter);
         assertCounts(1, 1, 1, accPathVisitor.getPathCounters());
         assertEquals(1, accPathVisitor.getDirList().size());
         assertEquals(1, accPathVisitor.getFileList().size());
+        assertEquals(accPathVisitor, accPathVisitor);
+        assertEquals(accPathVisitor.hashCode(), accPathVisitor.hashCode());
     }
 
     /**
@@ -108,11 +151,109 @@ public class AccumulatorPathVisitorTest {
     public void testFolders2FileSize2(final Supplier<AccumulatorPathVisitor> supplier) throws IOException {
         final AccumulatorPathVisitor accPathVisitor = supplier.get();
         final PathVisitorFileFilter countingFileFilter = new PathVisitorFileFilter(accPathVisitor);
-        Files.walkFileTree(Paths.get("src/test/resources/org/apache/commons/io/dirs-2-file-size-2"),
-            countingFileFilter);
+        Files.walkFileTree(Paths.get("src/test/resources/org/apache/commons/io/dirs-2-file-size-2"), countingFileFilter);
         assertCounts(3, 2, 2, accPathVisitor.getPathCounters());
         assertEquals(3, accPathVisitor.getDirList().size());
         assertEquals(2, accPathVisitor.getFileList().size());
+        assertEquals(accPathVisitor, accPathVisitor);
+        assertEquals(accPathVisitor.hashCode(), accPathVisitor.hashCode());
+    }
+
+    /**
+     * Tests IO-755 with a directory with 100 files, and delete all of them midway through the visit.
+     *
+     * Random failure like:
+     *
+     * <pre>
+     * ...?...
+     * </pre>
+     */
+    @ParameterizedTest
+    @MethodSource("testParametersIgnoreFailures")
+    public void testFolderWhileDeletingAsync(final Supplier<AccumulatorPathVisitor> supplier) throws IOException, InterruptedException {
+        final int count = 10_000;
+        final List<Path> files = new ArrayList<>(count);
+        // Create "count" file fixtures
+        for (int i = 1; i <= count; i++) {
+            final Path tempFile = Files.createTempFile(tempDirPath, "test", ".txt");
+            assertTrue(Files.exists(tempFile));
+            files.add(tempFile);
+        }
+        final AccumulatorPathVisitor accPathVisitor = supplier.get();
+        final PathVisitorFileFilter countingFileFilter = new PathVisitorFileFilter(accPathVisitor) {
+            @Override
+            public FileVisitResult visitFile(final Path path, final BasicFileAttributes attributes) throws IOException {
+                // Slow down the walking a bit to try and cause conflicts with the deletion thread
+                try {
+                    Thread.sleep(10);
+                } catch (final InterruptedException ignore) {
+                    // e.printStackTrace();
+                }
+                return super.visitFile(path, attributes);
+            }
+        };
+        final ExecutorService executor = Executors.newSingleThreadExecutor();
+        final AtomicBoolean deleted = new AtomicBoolean();
+        try {
+            executor.execute(() -> {
+                for (final Path file : files) {
+                    try {
+                        // File deletion is slow compared to tree walking, so we go as fast as we can here
+                        Files.delete(file);
+                    } catch (final IOException ignored) {
+                        // e.printStackTrace();
+                    }
+                }
+                deleted.set(true);
+            });
+            Files.walkFileTree(tempDirPath, countingFileFilter);
+        } finally {
+            if (!deleted.get()) {
+                Thread.sleep(1000);
+            }
+            if (!deleted.get()) {
+                executor.awaitTermination(5, TimeUnit.SECONDS);
+            }
+            executor.shutdownNow();
+        }
+        assertEquals(accPathVisitor, accPathVisitor);
+        assertEquals(accPathVisitor.hashCode(), accPathVisitor.hashCode());
+    }
+
+    /**
+     * Tests IO-755 with a directory with 100 files, and delete all of them midway through the visit.
+     */
+    @ParameterizedTest
+    @MethodSource("testParametersIgnoreFailures")
+    public void testFolderWhileDeletingSync(final Supplier<AccumulatorPathVisitor> supplier) throws IOException {
+        final int count = 100;
+        final int marker = count / 2;
+        final Set<Path> files = new LinkedHashSet<>(count);
+        for (int i = 1; i <= count; i++) {
+            final Path tempFile = Files.createTempFile(tempDirPath, "test", ".txt");
+            assertTrue(Files.exists(tempFile));
+            files.add(tempFile);
+        }
+        final AccumulatorPathVisitor accPathVisitor = supplier.get();
+        final AtomicInteger visitCount = new AtomicInteger();
+        final PathVisitorFileFilter countingFileFilter = new PathVisitorFileFilter(accPathVisitor) {
+            @Override
+            public FileVisitResult visitFile(final Path path, final BasicFileAttributes attributes) throws IOException {
+                if (visitCount.incrementAndGet() == marker) {
+                    // Now that we've visited half the files, delete them all
+                    for (final Path file : files) {
+                        Files.delete(file);
+                    }
+                }
+                return super.visitFile(path, attributes);
+            }
+        };
+        Files.walkFileTree(tempDirPath, countingFileFilter);
+        assertCounts(1, marker - 1, 0, accPathVisitor.getPathCounters());
+        assertEquals(1, accPathVisitor.getDirList().size());
+        assertEquals(marker - 1, accPathVisitor.getFileList().size());
+        assertEquals(accPathVisitor, accPathVisitor);
+        assertEquals(accPathVisitor.hashCode(), accPathVisitor.hashCode());
     }
 
 }

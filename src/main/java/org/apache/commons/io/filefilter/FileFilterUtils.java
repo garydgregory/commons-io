@@ -19,7 +19,6 @@ package org.apache.commons.io.filefilter;
 import java.io.File;
 import java.io.FileFilter;
 import java.io.FilenameFilter;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
@@ -36,7 +35,7 @@ import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOCase;
 
 /**
- * Useful utilities for working with file filters. It provides access to all
+ * Useful utilities for working with file filters. It provides access to most
  * file filter implementations in this package so you don't have to import
  * every class you use.
  *
@@ -45,12 +44,12 @@ import org.apache.commons.io.IOCase;
 public class FileFilterUtils {
 
     /* Constructed on demand and then cached */
-    private static final IOFileFilter cvsFilter = notFileFilter(
+    private static final IOFileFilter CVS_FILTER = notFileFilter(
             and(directoryFileFilter(), nameFileFilter("CVS")));
 
 
     /* Constructed on demand and then cached */
-    private static final IOFileFilter svnFilter = notFileFilter(
+    private static final IOFileFilter SVN_FILTER = notFileFilter(
             and(directoryFileFilter(), nameFileFilter(".svn")));
 
     /**
@@ -164,8 +163,8 @@ public class FileFilterUtils {
     }
 
     /**
-     * Returns an {@code IOFileFilter} that wraps the
-     * {@code FileFilter} instance.
+     * Returns an {@link IOFileFilter} that wraps the
+     * {@link FileFilter} instance.
      *
      * @param filter  the filter to be wrapped
      * @return a new filter that implements IOFileFilter
@@ -176,8 +175,8 @@ public class FileFilterUtils {
     }
 
     /**
-     * Returns an {@code IOFileFilter} that wraps the
-     * {@code FilenameFilter} instance.
+     * Returns an {@link IOFileFilter} that wraps the
+     * {@link FilenameFilter} instance.
      *
      * @param filter  the filter to be wrapped
      * @return a new filter that implements IOFileFilter
@@ -234,15 +233,13 @@ public class FileFilterUtils {
      *
      * @return a subset of {@code files} that is accepted by the
      *         file filter.
-     * @throws IllegalArgumentException if the filter is {@code null}
+     * @throws NullPointerException if the filter is {@code null}
      *         or {@code files} contains a {@code null} value.
      *
      * @since 2.0
      */
     public static File[] filter(final IOFileFilter filter, final File... files) {
-        if (filter == null) {
-            throw new IllegalArgumentException("file filter is null");
-        }
+        Objects.requireNonNull(filter, "filter");
         if (files == null) {
             return FileUtils.EMPTY_FILE_ARRAY;
         }
@@ -291,15 +288,12 @@ public class FileFilterUtils {
      * @param <R> the return type.
      * @param <A> the mutable accumulation type of the reduction operation (often hidden as an implementation detail)
      * @return a subset of files from the stream that is accepted by the filter.
-     * @throws IllegalArgumentException if the filter is {@code null}.
+     * @throws NullPointerException if the filter is {@code null}.
      */
     private static <R, A> R filterFiles(final IOFileFilter filter, final Stream<File> stream,
         final Collector<? super File, A, R> collector) {
-        //Objects.requireNonNull(filter, "filter");
+        Objects.requireNonNull(filter, "filter");
         Objects.requireNonNull(collector, "collector");
-        if (filter == null) {
-            throw new IllegalArgumentException("file filter is null");
-        }
         if (stream == null) {
             return Stream.<File>empty().collect(collector);
         }
@@ -515,10 +509,10 @@ public class FileFilterUtils {
      *
      * @param filter  the filter to decorate, null means an unrestricted filter
      * @return the decorated filter, never null
-     * @since 1.1 (method existed but had bug in 1.0)
+     * @since 1.1 (method existed but had a bug in 1.0)
      */
     public static IOFileFilter makeCVSAware(final IOFileFilter filter) {
-        return filter == null ? cvsFilter : and(filter, cvsFilter);
+        return filter == null ? CVS_FILTER : and(filter, CVS_FILTER);
     }
 
     /**
@@ -561,7 +555,7 @@ public class FileFilterUtils {
      * @since 1.1
      */
     public static IOFileFilter makeSVNAware(final IOFileFilter filter) {
-        return filter == null ? svnFilter : and(filter, svnFilter);
+        return filter == null ? SVN_FILTER : and(filter, SVN_FILTER);
     }
 
     /**
@@ -723,22 +717,12 @@ public class FileFilterUtils {
      *
      * @param filters The file filters
      * @return The list of file filters
-     * @throws IllegalArgumentException if the filters are null or contain a
+     * @throws NullPointerException if the filters are null or contain a
      *         null value.
      * @since 2.0
      */
     public static List<IOFileFilter> toList(final IOFileFilter... filters) {
-        if (filters == null) {
-            throw new IllegalArgumentException("The filters must not be null");
-        }
-        final List<IOFileFilter> list = new ArrayList<>(filters.length);
-        for (int i = 0; i < filters.length; i++) {
-            if (filters[i] == null) {
-                throw new IllegalArgumentException("The filter[" + i + "] is null");
-            }
-            list.add(filters[i]);
-        }
-        return list;
+        return Stream.of(Objects.requireNonNull(filters, "filters")).map(Objects::requireNonNull).collect(Collectors.toList());
     }
 
     /**

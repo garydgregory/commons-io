@@ -27,6 +27,7 @@ import java.io.StringReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLConnection;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.text.MessageFormat;
 import java.util.Locale;
@@ -68,15 +69,16 @@ import org.apache.commons.io.output.XmlStreamWriter;
  * @see XmlStreamWriter
  */
 public class XmlStreamReader extends Reader {
-    private static final String UTF_8 = "UTF-8";
 
-    private static final String US_ASCII = "US-ASCII";
+    private static final String UTF_8 = StandardCharsets.UTF_8.name();
 
-    private static final String UTF_16BE = "UTF-16BE";
+    private static final String US_ASCII = StandardCharsets.US_ASCII.name();
 
-    private static final String UTF_16LE = "UTF-16LE";
+    private static final String UTF_16BE = StandardCharsets.UTF_16BE.name();
 
-    private static final String UTF_16 = "UTF-16";
+    private static final String UTF_16LE = StandardCharsets.UTF_16LE.name();
+
+    private static final String UTF_16 = StandardCharsets.UTF_16.name();
 
     private static final String UTF_32BE = "UTF-32BE";
 
@@ -544,7 +546,7 @@ public class XmlStreamReader extends Reader {
             final String bomEnc, final String xmlGuessEnc, final String xmlEnc, final InputStream is,
             final boolean lenient) throws IOException {
         final String encoding;
-        if (lenient && (xmlEnc != null)) {
+        if (lenient && xmlEnc != null) {
             encoding = xmlEnc;
         } else {
             final boolean appXml = isAppXml(cTMime);
@@ -570,7 +572,7 @@ public class XmlStreamReader extends Reader {
                                 xmlGuessEnc, xmlEnc }), cTMime, cTEnc,
                         bomEnc, xmlGuessEnc, xmlEnc, is);
             } else if (cTEnc.equals(UTF_16)) {
-                if ((bomEnc == null) || !bomEnc.startsWith(UTF_16)) {
+                if (bomEnc == null || !bomEnc.startsWith(UTF_16)) {
                     throw new XmlStreamReaderException(HTTP_EX_2
                             .format(new Object[] { cTMime, cTEnc, bomEnc,
                                     xmlGuessEnc, xmlEnc }), cTMime, cTEnc,
@@ -584,7 +586,7 @@ public class XmlStreamReader extends Reader {
                                 xmlGuessEnc, xmlEnc }), cTMime, cTEnc,
                         bomEnc, xmlGuessEnc, xmlEnc, is);
             } else if (cTEnc.equals(UTF_32)) {
-                if ((bomEnc == null) || !bomEnc.startsWith(UTF_32)) {
+                if (bomEnc == null || !bomEnc.startsWith(UTF_32)) {
                     throw new XmlStreamReaderException(HTTP_EX_2
                             .format(new Object[] { cTMime, cTEnc, bomEnc,
                                     xmlGuessEnc, xmlEnc }), cTMime, cTEnc,
@@ -628,34 +630,35 @@ public class XmlStreamReader extends Reader {
                         bomEnc, xmlGuessEnc, xmlEnc, is);
             }
             encoding = UTF_8;
-        } else if (bomEnc.equals(UTF_16BE) || bomEnc.equals(UTF_16LE)) {
-            if (xmlGuessEnc != null && !xmlGuessEnc.equals(bomEnc)) {
-                throw new XmlStreamReaderException(RAW_EX_1.format(new Object[] { bomEnc,
-                        xmlGuessEnc, xmlEnc }), bomEnc, xmlGuessEnc, xmlEnc, is);
-            }
-            if (xmlEnc != null && !xmlEnc.equals(UTF_16)
-                    && !xmlEnc.equals(bomEnc)) {
-                throw new XmlStreamReaderException(RAW_EX_1
-                        .format(new Object[] { bomEnc, xmlGuessEnc, xmlEnc }),
-                        bomEnc, xmlGuessEnc, xmlEnc, is);
-            }
-            encoding = bomEnc;
-        } else if (bomEnc.equals(UTF_32BE) || bomEnc.equals(UTF_32LE)) {
-            if (xmlGuessEnc != null && !xmlGuessEnc.equals(bomEnc)) {
-                throw new XmlStreamReaderException(RAW_EX_1.format(new Object[] { bomEnc,
-                        xmlGuessEnc, xmlEnc }), bomEnc, xmlGuessEnc, xmlEnc, is);
-            }
-            if (xmlEnc != null && !xmlEnc.equals(UTF_32)
-                    && !xmlEnc.equals(bomEnc)) {
-                throw new XmlStreamReaderException(RAW_EX_1
-                        .format(new Object[] { bomEnc, xmlGuessEnc, xmlEnc }),
-                        bomEnc, xmlGuessEnc, xmlEnc, is);
-            }
-            encoding = bomEnc;
         } else {
-            throw new XmlStreamReaderException(RAW_EX_2.format(new Object[] {
-                    bomEnc, xmlGuessEnc, xmlEnc }), bomEnc, xmlGuessEnc,
-                    xmlEnc, is);
+            if (bomEnc.equals(UTF_16BE) || bomEnc.equals(UTF_16LE)) {
+                if (xmlGuessEnc != null && !xmlGuessEnc.equals(bomEnc)) {
+                    throw new XmlStreamReaderException(RAW_EX_1.format(new Object[] { bomEnc,
+                            xmlGuessEnc, xmlEnc }), bomEnc, xmlGuessEnc, xmlEnc, is);
+                }
+                if (xmlEnc != null && !xmlEnc.equals(UTF_16)
+                        && !xmlEnc.equals(bomEnc)) {
+                    throw new XmlStreamReaderException(RAW_EX_1
+                            .format(new Object[] { bomEnc, xmlGuessEnc, xmlEnc }),
+                            bomEnc, xmlGuessEnc, xmlEnc, is);
+                }
+            } else if (bomEnc.equals(UTF_32BE) || bomEnc.equals(UTF_32LE)) {
+                if (xmlGuessEnc != null && !xmlGuessEnc.equals(bomEnc)) {
+                    throw new XmlStreamReaderException(RAW_EX_1.format(new Object[] { bomEnc,
+                            xmlGuessEnc, xmlEnc }), bomEnc, xmlGuessEnc, xmlEnc, is);
+                }
+                if (xmlEnc != null && !xmlEnc.equals(UTF_32)
+                        && !xmlEnc.equals(bomEnc)) {
+                    throw new XmlStreamReaderException(RAW_EX_1
+                            .format(new Object[] { bomEnc, xmlGuessEnc, xmlEnc }),
+                            bomEnc, xmlGuessEnc, xmlEnc, is);
+                }
+            } else {
+                throw new XmlStreamReaderException(RAW_EX_2.format(new Object[] {
+                        bomEnc, xmlGuessEnc, xmlEnc }), bomEnc, xmlGuessEnc,
+                        xmlEnc, is);
+            }
+            encoding = bomEnc;
         }
         return encoding;
     }
@@ -685,7 +688,7 @@ public class XmlStreamReader extends Reader {
 
     private void doLenientDetection(String httpContentType,
             XmlStreamReaderException ex) throws IOException {
-        if ((httpContentType != null) && httpContentType.startsWith("text/html")) {
+        if (httpContentType != null && httpContentType.startsWith("text/html")) {
             httpContentType = httpContentType.substring("text/html"
                     .length());
             httpContentType = "text/xml" + httpContentType;

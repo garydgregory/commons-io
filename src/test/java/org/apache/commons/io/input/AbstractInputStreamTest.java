@@ -23,6 +23,8 @@ import java.io.IOException;
 import java.io.InputStream;
 
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.IOExceptionList;
+import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.RandomUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -52,12 +54,9 @@ public abstract class AbstractInputStreamTest {
     }
 
     @AfterEach
-    public void tearDown() throws IOException {
+    public void tearDown() throws IOExceptionList {
         inputFile.delete();
-
-        for (final InputStream is : inputStreams) {
-            is.close();
-        }
+        IOUtils.close(inputStreams);
     }
 
     @Test

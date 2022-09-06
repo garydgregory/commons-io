@@ -28,6 +28,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Arrays;
+import java.util.Objects;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.io.RandomAccessFileMode;
@@ -159,12 +160,12 @@ public class MagicNumberFileFilter extends AbstractFileFilter implements
      * @param magicNumbers the magic number to look for in the file.
      * @param offset the byte offset in the file to start comparing bytes.
      *
-     * @throws IllegalArgumentException if {@code magicNumber} is
-     *         {@code null}, or contains no bytes, or {@code offset}
+     * @throws IllegalArgumentException if {@code magicNumber}
+     *         contains no bytes, or {@code offset}
      *         is a negative number.
      */
     public MagicNumberFileFilter(final byte[] magicNumbers, final long offset) {
-        requireNonNull(magicNumbers, "magicNumbers");
+        Objects.requireNonNull(magicNumbers, "magicNumbers");
         if (magicNumbers.length == 0) {
             throw new IllegalArgumentException("The magic number must contain at least one byte");
         }
@@ -218,11 +219,11 @@ public class MagicNumberFileFilter extends AbstractFileFilter implements
      * @param offset the byte offset in the file to start comparing bytes.
      *
      * @throws IllegalArgumentException if {@code magicNumber} is
-     *         {@code null} or the empty String, or {@code offset} is
+     *         the empty String, or {@code offset} is
      *         a negative number.
      */
     public MagicNumberFileFilter(final String magicNumber, final long offset) {
-        requireNonNull(magicNumber, "magicNumber");
+        Objects.requireNonNull(magicNumber, "magicNumber");
         if (magicNumber.isEmpty()) {
             throw new IllegalArgumentException("The magic number must contain at least one byte");
         }
@@ -264,7 +265,7 @@ public class MagicNumberFileFilter extends AbstractFileFilter implements
                     return Arrays.equals(this.magicNumbers, fileBytes);
                 }
             }
-            catch (final IOException ioe) {
+            catch (final IOException ignored) {
                 // Do nothing, fall through and do not accept file
             }
         }
@@ -292,7 +293,7 @@ public class MagicNumberFileFilter extends AbstractFileFilter implements
     public FileVisitResult accept(final Path file, final BasicFileAttributes attributes) {
         if (file != null && Files.isRegularFile(file) && Files.isReadable(file)) {
             try {
-                try (final FileChannel fileChannel = FileChannel.open(file)) {
+                try (FileChannel fileChannel = FileChannel.open(file)) {
                     final ByteBuffer byteBuffer = ByteBuffer.allocate(this.magicNumbers.length);
                     final int read = fileChannel.read(byteBuffer);
                     if (read != magicNumbers.length) {
@@ -301,7 +302,7 @@ public class MagicNumberFileFilter extends AbstractFileFilter implements
                     return toFileVisitResult(Arrays.equals(this.magicNumbers, byteBuffer.array()));
                 }
             }
-            catch (final IOException ioe) {
+            catch (final IOException ignored) {
                 // Do nothing, fall through and do not accept file
             }
         }

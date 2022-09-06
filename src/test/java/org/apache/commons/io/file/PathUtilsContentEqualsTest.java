@@ -18,8 +18,8 @@
 package org.apache.commons.io.file;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
 
 import java.io.File;
 import java.io.IOException;
@@ -166,24 +166,16 @@ public class PathUtilsContentEqualsTest {
         assertTrue(PathUtils.fileContentEquals(path2, path1));
 
         // Directories
-        try {
-            PathUtils.fileContentEquals(temporaryFolder.toPath(), temporaryFolder.toPath());
-            fail("Comparing directories should fail with an IOException");
-        } catch (final IOException ioe) {
-            // expected
-        }
+        assertThrows(IOException.class, () -> PathUtils.fileContentEquals(temporaryFolder.toPath(), temporaryFolder.toPath()));
 
         // Different files
         final Path objFile1 = Paths.get(temporaryFolder.getAbsolutePath(), getName() + ".object");
-        objFile1.toFile().deleteOnExit();
         PathUtils.copyFile(getClass().getResource("/java/lang/Object.class"), objFile1);
 
         final Path objFile1b = Paths.get(temporaryFolder.getAbsolutePath(), getName() + ".object2");
-        objFile1b.toFile().deleteOnExit();
         PathUtils.copyFile(getClass().getResource("/java/lang/Object.class"), objFile1b);
 
         final Path objFile2 = Paths.get(temporaryFolder.getAbsolutePath(), getName() + ".collection");
-        objFile2.toFile().deleteOnExit();
         PathUtils.copyFile(getClass().getResource("/java/util/Collection.class"), objFile2);
 
         assertFalse(PathUtils.fileContentEquals(objFile1, objFile2));

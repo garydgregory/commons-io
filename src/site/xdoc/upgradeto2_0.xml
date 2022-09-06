@@ -72,7 +72,7 @@ Enhancements from 1.4
              - Annotate with @Override and @Deprecated
 
   * [IO-178] New BOMInputStream and ByteOrderMark implementations - to detect and optionally exclude an initial Byte Order mark (BOM)
-  * [IO-197] New BoundedInputStream (copied from from Apache JackRabbit)
+  * [IO-197] New BoundedInputStream (copied from Apache JackRabbit)
   * [IO-193] New Broken Input and Output streams
   * [IO-132] New File Listener/Monitor facility
   * [IO-158] New ReaderInputStream and WriterOutputStream implementations
@@ -126,7 +126,7 @@ Bug fixes from 1.4
   * [IO-207] FileUtils - fix race condition in forceMkdir() method
   * [IO-217] FileUtils - fix copyDirectoryToDirectory() makes infinite loops
   * [IO-166] FileUtils - fix URL decoding in toFile(URL)
-  * [IO-190] FileUtils - fix copyDirectory not preserving lastmodified date on sub-directories
+  * [IO-190] FileUtils - fix copyDirectory not preserving lastmodified date on subdirectories
   * [IO-240] FileFilterUtils - ensure cvsFilter and svnFilter are only created once.
   * [IO-175] IOUtils - fix copyFile() issues with very large files
   * [IO-191] Improvements from static analysis

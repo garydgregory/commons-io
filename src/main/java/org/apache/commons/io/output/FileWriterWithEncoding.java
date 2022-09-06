@@ -17,6 +17,7 @@
 package org.apache.commons.io.output;
 
 import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
@@ -32,8 +33,8 @@ import org.apache.commons.io.IOUtils;
 /**
  * Writer of files that allows the encoding to be set.
  * <p>
- * This class provides a simple alternative to {@code FileWriter} that allows an encoding to be set. Unfortunately, it
- * cannot subclass {@code FileWriter}.
+ * This class provides a simple alternative to {@link FileWriter} that allows an encoding to be set. Unfortunately, it
+ * cannot subclass {@link FileWriter}.
  * </p>
  * <p>
  * By default, the file will be overwritten, but this may be changed to append.
@@ -46,9 +47,7 @@ import org.apache.commons.io.IOUtils;
  *
  * @since 1.4
  */
-public class FileWriterWithEncoding extends Writer {
-    // Cannot extend ProxyWriter, as requires writer to be
-    // known when super() is called
+public class FileWriterWithEncoding extends ProxyWriter {
 
     /**
      * Initializes the wrapped file writer. Ensure that a cleanup occurs if the writer creation fails.
@@ -61,20 +60,20 @@ public class FileWriterWithEncoding extends Writer {
      */
     private static Writer initWriter(final File file, final Object encoding, final boolean append) throws IOException {
         Objects.requireNonNull(file, "file");
-        OutputStream stream = null;
+        OutputStream outputStream = null;
         final boolean fileExistedAlready = file.exists();
         try {
-            stream = FileUtils.newOutputStream(file, append);
+            outputStream = FileUtils.newOutputStream(file, append);
             if (encoding == null || encoding instanceof Charset) {
-                return new OutputStreamWriter(stream, Charsets.toCharset((Charset) encoding));
+                return new OutputStreamWriter(outputStream, Charsets.toCharset((Charset) encoding));
             }
             if (encoding instanceof CharsetEncoder) {
-                return new OutputStreamWriter(stream, (CharsetEncoder) encoding);
+                return new OutputStreamWriter(outputStream, (CharsetEncoder) encoding);
             }
-            return new OutputStreamWriter(stream, (String) encoding);
+            return new OutputStreamWriter(outputStream, (String) encoding);
         } catch (final IOException | RuntimeException ex) {
             try {
-                IOUtils.close(stream);
+                IOUtils.close(outputStream);
             } catch (final IOException e) {
                 ex.addSuppressed(e);
             }
@@ -84,9 +83,6 @@ public class FileWriterWithEncoding extends Writer {
             throw ex;
         }
     }
-
-    /** The writer to decorate. */
-    private final Writer out;
 
     /**
      * Constructs a FileWriterWithEncoding with a file encoding.
@@ -109,8 +105,9 @@ public class FileWriterWithEncoding extends Writer {
      * @throws NullPointerException if the file is null.
      * @throws IOException in case of an I/O error.
      */
+    @SuppressWarnings("resource") // Call site is responsible for closing a new instance.
     public FileWriterWithEncoding(final File file, final Charset encoding, final boolean append) throws IOException {
-        this.out = initWriter(file, encoding, append);
+        super(initWriter(file, encoding, append));
     }
 
     /**
@@ -134,8 +131,9 @@ public class FileWriterWithEncoding extends Writer {
      * @throws NullPointerException if the file is null.
      * @throws IOException in case of an I/O error.
      */
+    @SuppressWarnings("resource") // Call site is responsible for closing a new instance.
     public FileWriterWithEncoding(final File file, final CharsetEncoder charsetEncoder, final boolean append) throws IOException {
-        this.out = initWriter(file, charsetEncoder, append);
+        super(initWriter(file, charsetEncoder, append));
     }
 
     /**
@@ -159,8 +157,9 @@ public class FileWriterWithEncoding extends Writer {
      * @throws NullPointerException if the file is null.
      * @throws IOException in case of an I/O error.
      */
+    @SuppressWarnings("resource") // Call site is responsible for closing a new instance.
     public FileWriterWithEncoding(final File file, final String charsetName, final boolean append) throws IOException {
-        this.out = initWriter(file, charsetName, append);
+        super(initWriter(file, charsetName, append));
     }
 
     /**
@@ -236,84 +235,5 @@ public class FileWriterWithEncoding extends Writer {
      */
     public FileWriterWithEncoding(final String fileName, final String charsetName, final boolean append) throws IOException {
         this(new File(fileName), charsetName, append);
-    }
-
-    /**
-     * Closes the stream.
-     *
-     * @throws IOException if an I/O error occurs.
-     */
-    @Override
-    public void close() throws IOException {
-        out.close();
-    }
-
-    /**
-     * Flushes the stream.
-     *
-     * @throws IOException if an I/O error occurs.
-     */
-    @Override
-    public void flush() throws IOException {
-        out.flush();
-    }
-
-    /**
-     * Writes the characters from an array.
-     *
-     * @param chr the characters to write
-     * @throws IOException if an I/O error occurs.
-     */
-    @Override
-    public void write(final char[] chr) throws IOException {
-        out.write(chr);
-    }
-
-    /**
-     * Writes the specified characters from an array.
-     *
-     * @param chr the characters to write
-     * @param st The start offset
-     * @param end The number of characters to write
-     * @throws IOException if an I/O error occurs.
-     */
-    @Override
-    public void write(final char[] chr, final int st, final int end) throws IOException {
-        out.write(chr, st, end);
-    }
-
-    /**
-     * Writes a character.
-     *
-     * @param idx the character to write
-     * @throws IOException if an I/O error occurs.
-     */
-    @Override
-    public void write(final int idx) throws IOException {
-        out.write(idx);
-    }
-
-    /**
-     * Writes the characters from a string.
-     *
-     * @param str the string to write
-     * @throws IOException if an I/O error occurs.
-     */
-    @Override
-    public void write(final String str) throws IOException {
-        out.write(str);
-    }
-
-    /**
-     * Writes the specified characters from a string.
-     *
-     * @param str the string to write
-     * @param st The start offset
-     * @param end The number of characters to write
-     * @throws IOException if an I/O error occurs.
-     */
-    @Override
-    public void write(final String str, final int st, final int end) throws IOException {
-        out.write(str, st, end);
     }
 }

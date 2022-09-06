@@ -98,7 +98,7 @@ public class FileSystemUtilsTest {
     public void testGetFreeSpace_String() throws Exception {
         // test coverage, as we can't check value
         if (File.separatorChar == '/') {
-            // have to figure out unix block size
+            // have to figure out Unix block size
             final String[] cmd;
             String osName = System.getProperty("os.name");
             osName = osName.toLowerCase(Locale.ENGLISH);
@@ -126,7 +126,7 @@ public class FileSystemUtilsTest {
             final long kb = FileSystemUtils.freeSpaceKb("/");
             // Assume disk space does not fluctuate
             // more than 1% between the above two calls;
-            // this also also small enough to verify freeSpaceKb uses
+            // this is also small enough to verify freeSpaceKb uses
             // kibibytes (1024) instead of SI kilobytes (1000)
             final double acceptableDelta = kb * 0.01d;
             if (kilobyteBlock) {
@@ -153,15 +153,15 @@ public class FileSystemUtilsTest {
     @Test
     public void testGetFreeSpaceOS_String_NullPath() throws Exception {
         final FileSystemUtils fsu = new FileSystemUtils();
-        assertThrows(IllegalArgumentException.class, () -> fsu.freeSpaceOS(null, 1, false, NEG_1_TIMEOUT));
-        assertThrows(IllegalArgumentException.class, () -> fsu.freeSpaceOS(null, 1, true, NEG_1_TIMEOUT));
+        assertThrows(NullPointerException.class, () -> fsu.freeSpaceOS(null, 1, false, NEG_1_TIMEOUT));
+        assertThrows(NullPointerException.class, () -> fsu.freeSpaceOS(null, 1, true, NEG_1_TIMEOUT));
     }
 
     @Test
     public void testGetFreeSpaceOS_String_Other() throws Exception {
         final FileSystemUtils fsu = new FileSystemUtils();
         assertThrows(IllegalStateException.class, () -> fsu.freeSpaceOS("", 0, false, NEG_1_TIMEOUT));
-        assertThrows(IllegalArgumentException.class, () -> fsu.freeSpaceOS(null, 1, true, NEG_1_TIMEOUT));
+        assertThrows(NullPointerException.class, () -> fsu.freeSpaceOS(null, 1, true, NEG_1_TIMEOUT));
         assertThrows(IllegalStateException.class, () -> fsu.freeSpaceOS("", 0, true, NEG_1_TIMEOUT));
     }
 

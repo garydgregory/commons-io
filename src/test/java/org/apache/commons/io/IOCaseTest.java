@@ -31,8 +31,7 @@ import java.io.ObjectOutputStream;
 import org.junit.jupiter.api.Test;
 
 /**
- * This is used to test IOCase for correctness.
- *
+ * Tests {@link IOCase}.
  */
 public class IOCaseTest {
 
@@ -40,10 +39,10 @@ public class IOCaseTest {
 
     private IOCase serialize(final IOCase value) throws Exception {
         final ByteArrayOutputStream buf = new ByteArrayOutputStream();
-        final ObjectOutputStream out = new ObjectOutputStream(buf);
-        out.writeObject(value);
-        out.flush();
-        out.close();
+        try (final ObjectOutputStream out = new ObjectOutputStream(buf)) {
+            out.writeObject(value);
+            out.flush();
+        }
 
         final ByteArrayInputStream bufin = new ByteArrayInputStream(buf.toByteArray());
         final ObjectInputStream in = new ObjectInputStream(bufin);
@@ -288,6 +287,13 @@ public class IOCaseTest {
     }
 
     @Test
+    public void test_isCaseSensitive_static() {
+        assertTrue(IOCase.isCaseSensitive(IOCase.SENSITIVE));
+        assertFalse(IOCase.isCaseSensitive(IOCase.INSENSITIVE));
+        assertEquals(!WINDOWS, IOCase.isCaseSensitive(IOCase.SYSTEM));
+    }
+
+    @Test
     public void test_serialization() throws Exception {
         assertSame(IOCase.SENSITIVE, serialize(IOCase.SENSITIVE));
         assertSame(IOCase.INSENSITIVE, serialize(IOCase.INSENSITIVE));
@@ -300,5 +306,4 @@ public class IOCaseTest {
         assertEquals("Insensitive", IOCase.INSENSITIVE.toString());
         assertEquals("System", IOCase.SYSTEM.toString());
     }
-
 }

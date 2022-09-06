@@ -22,10 +22,17 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 
+import org.apache.commons.io.function.Uncheck;
 import org.junit.jupiter.api.Test;
 
+/**
+ * Tests {@link Uncheck}.
+ */
 public class UncheckedIOExceptionsTest {
 
+    /**
+     * Tests {@link UncheckedIOExceptions#create(Object)}.
+     */
     @Test
     public void testCreate() {
         final Object message = "test";
@@ -35,20 +42,20 @@ public class UncheckedIOExceptionsTest {
             assertEquals(message, e.getMessage());
             assertEquals(message, e.getCause().getMessage());
         }
-
     }
 
+    /**
+     * Tests {@link UncheckedIOExceptions#wrap(IOException, Object)}.
+     */
     @Test
-    public void testCreateWithException() {
+    public void testWrap() {
         final Object message1 = "test1";
         final Object message2 = "test2";
-        final IOException ioe = new IOException(message2.toString());
         try {
-            throw UncheckedIOExceptions.create(message1, ioe);
+            throw UncheckedIOExceptions.wrap(new IOException(message2.toString()), message1);
         } catch (final UncheckedIOException e) {
             assertEquals(message1, e.getMessage());
             assertEquals(message2, e.getCause().getMessage());
         }
-
     }
 }

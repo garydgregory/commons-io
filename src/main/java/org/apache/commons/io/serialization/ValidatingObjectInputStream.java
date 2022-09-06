@@ -26,9 +26,10 @@ import java.io.ObjectStreamClass;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
 /**
- * An {@code ObjectInputStream} that's restricted to deserialize
+ * An {@link ObjectInputStream} that's restricted to deserialize
  * a limited set of classes.
  *
  * <p>
@@ -67,9 +68,7 @@ public class ValidatingObjectInputStream extends ObjectInputStream {
      * @return this object
      */
     public ValidatingObjectInputStream accept(final Class<?>... classes) {
-        for (final Class<?> c : classes) {
-            acceptMatchers.add(new FullClassNameMatcher(c.getName()));
-        }
+        Stream.of(classes).map(c -> new FullClassNameMatcher(c.getName())).forEach(acceptMatchers::add);
         return this;
     }
 
@@ -106,14 +105,12 @@ public class ValidatingObjectInputStream extends ObjectInputStream {
      * @return this object
      */
     public ValidatingObjectInputStream accept(final String... patterns) {
-        for (final String pattern : patterns) {
-            acceptMatchers.add(new WildcardClassNameMatcher(pattern));
-        }
+        Stream.of(patterns).map(WildcardClassNameMatcher::new).forEach(acceptMatchers::add);
         return this;
     }
 
     /**
-     * Called to throw {@code InvalidClassException} if an invalid
+     * Called to throw {@link InvalidClassException} if an invalid
      * class name is found during deserialization. Can be overridden, for example
      * to log those class names.
      *
@@ -132,9 +129,7 @@ public class ValidatingObjectInputStream extends ObjectInputStream {
      * @return this object
      */
     public ValidatingObjectInputStream reject(final Class<?>... classes) {
-        for (final Class<?> c : classes) {
-            rejectMatchers.add(new FullClassNameMatcher(c.getName()));
-        }
+        Stream.of(classes).map(c -> new FullClassNameMatcher(c.getName())).forEach(rejectMatchers::add);
         return this;
     }
 
@@ -171,9 +166,7 @@ public class ValidatingObjectInputStream extends ObjectInputStream {
      * @return this object
      */
     public ValidatingObjectInputStream reject(final String... patterns) {
-        for (final String pattern : patterns) {
-            rejectMatchers.add(new WildcardClassNameMatcher(pattern));
-        }
+        Stream.of(patterns).map(WildcardClassNameMatcher::new).forEach(rejectMatchers::add);
         return this;
     }
 

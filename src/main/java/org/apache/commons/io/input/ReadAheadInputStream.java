@@ -43,7 +43,7 @@ import java.util.concurrent.locks.ReentrantLock;
  */
 public class ReadAheadInputStream extends InputStream {
 
-    private static final ThreadLocal<byte[]> oneByte = ThreadLocal.withInitial(() -> new byte[1]);
+    private static final ThreadLocal<byte[]> BYTE_ARRAY_1 = ThreadLocal.withInitial(() -> new byte[1]);
 
     /**
      * Creates a new daemon executor service.
@@ -140,13 +140,12 @@ public class ReadAheadInputStream extends InputStream {
      * @param inputStream The underlying input stream.
      * @param bufferSizeInBytes The buffer size.
      * @param executorService An executor service for the read-ahead thread.
-     * @param shutdownExecutorService Whether or not to shutdown the given ExecutorService on close.
+     * @param shutdownExecutorService Whether or not to shut down the given ExecutorService on close.
      */
     private ReadAheadInputStream(final InputStream inputStream, final int bufferSizeInBytes,
         final ExecutorService executorService, final boolean shutdownExecutorService) {
         if (bufferSizeInBytes <= 0) {
-            throw new IllegalArgumentException(
-                "bufferSizeInBytes should be greater than 0, but the value is " + bufferSizeInBytes);
+            throw new IllegalArgumentException("bufferSizeInBytes should be greater than 0, but the value is " + bufferSizeInBytes);
         }
         this.executorService = Objects.requireNonNull(executorService, "executorService");
         this.underlyingInputStream = Objects.requireNonNull(inputStream, "inputStream");
@@ -227,8 +226,8 @@ public class ReadAheadInputStream extends InputStream {
         if (needToCloseUnderlyingInputStream) {
             try {
                 underlyingInputStream.close();
-            } catch (final IOException e) {
-                // TODO ?
+            } catch (final IOException ignored) {
+                // TODO Rethrow as UncheckedIOException?
             }
         }
     }
@@ -243,7 +242,7 @@ public class ReadAheadInputStream extends InputStream {
             // short path - just get one byte.
             return activeBuffer.get() & 0xFF;
         }
-        final byte[] oneByteArray = oneByte.get();
+        final byte[] oneByteArray = BYTE_ARRAY_1.get();
         return read(oneByteArray, 0, 1) == EOF ? EOF : oneByteArray[0] & 0xFF;
     }
 
@@ -269,7 +268,7 @@ public class ReadAheadInputStream extends InputStream {
                         return EOF;
                     }
                 }
-                // Swap the newly read read ahead buffer in place of empty active buffer.
+                // Swap the newly read ahead buffer in place of empty active buffer.
                 swapBuffers();
                 // After swapping buffers, trigger another async read for read ahead buffer.
                 readAsync();
@@ -283,7 +282,11 @@ public class ReadAheadInputStream extends InputStream {
         return len;
     }
 
-    /** Read data from underlyingInputStream to readAheadBuffer asynchronously. */
+    /**
+     * Read data from underlyingInputStream to readAheadBuffer asynchronously.
+     *
+     * @throws IOException if an I/O error occurs.
+     */
     private void readAsync() throws IOException {
         stateChangeLock.lock();
         final byte[] arr;
@@ -347,7 +350,7 @@ public class ReadAheadInputStream extends InputStream {
                 stateChangeLock.lock();
                 try {
                     readAheadBuffer.limit(off);
-                    if (read < 0 || (exception instanceof EOFException)) {
+                    if (read < 0 || exception instanceof EOFException) {
                         endOfStream = true;
                     } else if (exception != null) {
                         readAborted = true;
@@ -398,6 +401,7 @@ public class ReadAheadInputStream extends InputStream {
      *
      * @param n the number of bytes to be skipped.
      * @return the actual number of bytes skipped.
+     * @throws IOException if an I/O error occurs.
      */
     private long skipInternal(final long n) throws IOException {
         assert stateChangeLock.isLocked();
@@ -444,7 +448,7 @@ public class ReadAheadInputStream extends InputStream {
         try {
             isWaiting.set(true);
             // There is only one reader, and one writer, so the writer should signal only once,
-            // but a while loop checking the wake up condition is still needed to avoid spurious wakeups.
+            // but a while loop checking the wake-up condition is still needed to avoid spurious wakeups.
             while (readInProgress) {
                 asyncReadComplete.await();
             }
@@ -453,8 +457,11 @@ public class ReadAheadInputStream extends InputStream {
             iio.initCause(e);
             throw iio;
         } finally {
-            isWaiting.set(false);
-            stateChangeLock.unlock();
+            try {
+                isWaiting.set(false);
+            } finally {
+                stateChangeLock.unlock();
+            }
         }
         checkReadException();
     }

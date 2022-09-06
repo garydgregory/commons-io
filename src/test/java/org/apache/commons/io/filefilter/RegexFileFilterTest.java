@@ -17,15 +17,22 @@
 package org.apache.commons.io.filefilter;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.File;
+import java.io.IOException;
+import java.io.ObjectOutputStream;
+import java.io.Serializable;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.function.Function;
 import java.util.regex.Pattern;
 
 import org.apache.commons.io.IOCase;
+import org.apache.commons.io.output.ByteArrayOutputStream;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -46,6 +53,8 @@ public class RegexFileFilterTest {
             assertEquals(expected, filter.accept(file),
                     "Filter(File, String) " + filter.getClass().getName() + " not " + expected + " for null");
         }
+        // Just don't blow up
+        assertNotNull(filter.toString());
     }
 
     public void assertFiltering(final IOFileFilter filter, final Path path, final boolean expected) {
@@ -63,11 +72,25 @@ public class RegexFileFilterTest {
             assertEquals(expectedFileVisitResult, filter.accept(path, null),
                 "Filter(Path, Path) " + filter.getClass().getName() + " not " + expectedFileVisitResult + " for null");
         }
+        // Just don't blow up
+        assertNotNull(filter.toString());
+    }
+
+    private RegexFileFilter assertSerializable(final RegexFileFilter serializable) throws IOException {
+        try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+            try (ObjectOutputStream oos = new ObjectOutputStream(baos)) {
+                oos.writeObject(serializable);
+            }
+            baos.flush();
+            assertTrue(baos.toByteArray().length > 0);
+        }
+        return serializable;
     }
 
     @Test
-    public void testRegex() {
-        IOFileFilter filter = new RegexFileFilter("^.*[tT]est(-\\d+)?\\.java$");
+    public void testRegex() throws IOException {
+        RegexFileFilter filter = new RegexFileFilter("^.*[tT]est(-\\d+)?\\.java$");
+        assertSerializable(filter);
         assertFiltering(filter, new File("Test.java"), true);
         assertFiltering(filter, new File("test-10.java"), true);
         assertFiltering(filter, new File("test-.java"), false);
@@ -77,6 +100,7 @@ public class RegexFileFilterTest {
         assertFiltering(filter, new File("test-.java").toPath(), false);
 
         filter = new RegexFileFilter("^[Tt]est.java$");
+        assertSerializable(filter);
         assertFiltering(filter, new File("Test.java"), true);
         assertFiltering(filter, new File("test.java"), true);
         assertFiltering(filter, new File("tEST.java"), false);
@@ -86,6 +110,7 @@ public class RegexFileFilterTest {
         assertFiltering(filter, new File("tEST.java").toPath(), false);
 
         filter = new RegexFileFilter(Pattern.compile("^test.java$", Pattern.CASE_INSENSITIVE));
+        assertSerializable(filter);
         assertFiltering(filter, new File("Test.java"), true);
         assertFiltering(filter, new File("test.java"), true);
         assertFiltering(filter, new File("tEST.java"), true);
@@ -95,6 +120,7 @@ public class RegexFileFilterTest {
         assertFiltering(filter, new File("tEST.java").toPath(), true);
 
         filter = new RegexFileFilter("^test.java$", Pattern.CASE_INSENSITIVE);
+        assertSerializable(filter);
         assertFiltering(filter, new File("Test.java"), true);
         assertFiltering(filter, new File("test.java"), true);
         assertFiltering(filter, new File("tEST.java"), true);
@@ -104,6 +130,7 @@ public class RegexFileFilterTest {
         assertFiltering(filter, new File("tEST.java").toPath(), true);
 
         filter = new RegexFileFilter("^test.java$", IOCase.INSENSITIVE);
+        assertSerializable(filter);
         assertFiltering(filter, new File("Test.java"), true);
         assertFiltering(filter, new File("test.java"), true);
         assertFiltering(filter, new File("tEST.java"), true);
@@ -115,21 +142,24 @@ public class RegexFileFilterTest {
 
     @Test
     public void testRegexEdgeCases() {
-        assertThrows(IllegalArgumentException.class, () -> new RegexFileFilter((String) null));
-        assertThrows(IllegalArgumentException.class, () -> new RegexFileFilter(null, Pattern.CASE_INSENSITIVE));
-        assertThrows(IllegalArgumentException.class, () -> new RegexFileFilter(null, IOCase.INSENSITIVE));
-        assertThrows(IllegalArgumentException.class, () -> new RegexFileFilter((java.util.regex.Pattern) null));
+        assertThrows(NullPointerException.class, () -> assertSerializable(new RegexFileFilter((String) null)));
+        assertThrows(NullPointerException.class, () -> assertSerializable(new RegexFileFilter(null, Pattern.CASE_INSENSITIVE)));
+        assertThrows(NullPointerException.class, () -> assertSerializable(new RegexFileFilter(null, IOCase.INSENSITIVE)));
+        assertThrows(NullPointerException.class, () -> assertSerializable(new RegexFileFilter((java.util.regex.Pattern) null)));
     }
 
     /**
      * Tests https://issues.apache.org/jira/browse/IO-733.
+     * @throws IOException
      */
+    @SuppressWarnings("unchecked")
     @Test
-    public void testRegexFileNameOnly() {
+    public void testRegexFileNameOnly() throws IOException {
         final Path path = Paths.get("folder", "Foo.java");
         final String patternStr = "Foo.*";
-        assertFiltering(new RegexFileFilter(patternStr), path, true);
-        assertFiltering(new RegexFileFilter(Pattern.compile(patternStr), Path::toString), path, false);
+        assertFiltering(assertSerializable(new RegexFileFilter(patternStr)), path, true);
+        assertFiltering(assertSerializable(new RegexFileFilter(Pattern.compile(patternStr), (Function<Path, String> & Serializable) Path::toString)), path,
+            false);
     }
 
 }

@@ -18,6 +18,7 @@ package org.apache.commons.io.input;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -59,67 +60,58 @@ public class NullInputStreamTest {
 
     @Test
     public void testEOFException() throws Exception {
-        final InputStream input = new TestNullInputStream(2, false, true);
-        assertEquals(0, input.read(), "Read 1");
-        assertEquals(1, input.read(), "Read 2");
-        try {
-            final int result = input.read();
-            fail("Should have thrown an EOFException, byte=[" + result + "]");
-        } catch (final EOFException e) {
-            // expected
+        try (InputStream input = new TestNullInputStream(2, false, true)) {
+            assertEquals(0, input.read(), "Read 1");
+            assertEquals(1, input.read(), "Read 2");
+            assertThrows(EOFException.class, () -> input.read());
         }
-        input.close();
     }
 
     @Test
     public void testMarkAndReset() throws Exception {
         int position = 0;
         final int readlimit = 10;
-        @SuppressWarnings("resource") // this is actually closed
-        final InputStream input = new TestNullInputStream(100, true, false);
+        try (InputStream input = new TestNullInputStream(100, true, false)) {
 
-        assertTrue(input.markSupported(), "Mark Should be Supported");
+            assertTrue(input.markSupported(), "Mark Should be Supported");
 
-        // No Mark
-        try {
+            // No Mark
+            try {
+                input.reset();
+                fail("Read limit exceeded, expected IOException ");
+            } catch (final IOException e) {
+                assertEquals("No position has been marked", e.getMessage(), "No Mark IOException message");
+            }
+
+            for (; position < 3; position++) {
+                assertEquals(position, input.read(), "Read Before Mark [" + position + "]");
+            }
+
+            // Mark
+            input.mark(readlimit);
+
+            // Read further
+            for (int i = 0; i < 3; i++) {
+                assertEquals(position + i, input.read(), "Read After Mark [" + i + "]");
+            }
+
+            // Reset
             input.reset();
-            fail("Read limit exceeded, expected IOException ");
-        } catch (final IOException e) {
-            assertEquals("No position has been marked", e.getMessage(), "No Mark IOException message");
+
+            // Read From marked position
+            for (int i = 0; i < readlimit + 1; i++) {
+                assertEquals(position + i, input.read(), "Read After Reset [" + i + "]");
+            }
+
+            // Reset after read limit passed
+            try {
+                input.reset();
+                fail("Read limit exceeded, expected IOException ");
+            } catch (final IOException e) {
+                assertEquals("Marked position [" + position + "] is no longer valid - passed the read limit [" + readlimit + "]", e.getMessage(),
+                    "Read limit IOException message");
+            }
         }
-
-        for (; position < 3; position++) {
-            assertEquals(position, input.read(), "Read Before Mark [" + position +"]");
-        }
-
-        // Mark
-        input.mark(readlimit);
-
-        // Read further
-        for (int i = 0; i < 3; i++) {
-            assertEquals(position + i, input.read(), "Read After Mark [" + i +"]");
-        }
-
-        // Reset
-        input.reset();
-
-        // Read From marked position
-        for (int i = 0; i < readlimit + 1; i++) {
-            assertEquals(position + i, input.read(), "Read After Reset [" + i +"]");
-        }
-
-        // Reset after read limit passed
-        try {
-            input.reset();
-            fail("Read limit exceeded, expected IOException ");
-        } catch (final IOException e) {
-            assertEquals("Marked position [" + position
-                         + "] is no longer valid - passed the read limit ["
-                         + readlimit + "]",
-                         e.getMessage(),
-                         "Read limit IOException message");
-        }
-        input.close();
     }
 
     @Test
@@ -213,9 +205,6 @@ public class NullInputStreamTest {
             assertEquals(i, bytes[i], "Check Bytes 2");
         }
     }
-
-
-    // ------------- Test NullInputStream implementation -------------
 
     @Test
     public void testSkip() throws Exception {

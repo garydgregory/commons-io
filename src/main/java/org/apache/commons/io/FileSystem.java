@@ -36,24 +36,24 @@ public enum FileSystem {
     /**
      * Generic file system.
      */
-    GENERIC(false, false, Integer.MAX_VALUE, Integer.MAX_VALUE, new char[] { 0 }, new String[] {}, false, '/'),
+    GENERIC(false, false, Integer.MAX_VALUE, Integer.MAX_VALUE, new int[] { 0 }, new String[] {}, false, false, '/'),
 
     /**
      * Linux file system.
      */
-    LINUX(true, true, 255, 4096, new char[] {
+    LINUX(true, true, 255, 4096, new int[] {
             // KEEP THIS ARRAY SORTED!
             // @formatter:off
             // ASCII NUL
             0,
              '/'
             // @formatter:on
-    }, new String[] {}, false, '/'),
+    }, new String[] {}, false, false, '/'),
 
     /**
      * MacOS file system.
      */
-    MAC_OSX(true, true, 255, 1024, new char[] {
+    MAC_OSX(true, true, 255, 1024, new int[] {
             // KEEP THIS ARRAY SORTED!
             // @formatter:off
             // ASCII NUL
@@ -61,7 +61,7 @@ public enum FileSystem {
             '/',
              ':'
             // @formatter:on
-    }, new String[] {}, false, '/'),
+    }, new String[] {}, false, false, '/'),
 
     /**
      * Windows file system.
@@ -73,9 +73,11 @@ public enum FileSystem {
      *
      * @see <a href="https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file">Naming Conventions
      *      (microsoft.com)</a>
+     * @see <a href="https://docs.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-createfilea#consoles">
+     *      CreateFileA function - Consoles (microsoft.com)</a>
      */
     WINDOWS(false, true, 255,
-            32000, new char[] {
+            32000, new int[] {
                     // KEEP THIS ARRAY SORTED!
                     // @formatter:off
                     // ASCII NUL
@@ -86,8 +88,8 @@ public enum FileSystem {
                     '"', '*', '/', ':', '<', '>', '?', '\\', '|'
                     // @formatter:on
             }, // KEEP THIS ARRAY SORTED!
-            new String[] { "AUX", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9", "CON", "LPT1",
-                    "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9", "NUL", "PRN" }, true, '\\');
+            new String[] { "AUX", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9", "CON", "CONIN$", "CONOUT$",
+                    "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9", "NUL", "PRN" }, true, true, '\\');
 
     /**
      * <p>
@@ -172,7 +174,7 @@ public enum FileSystem {
      * Gets a System property, defaulting to {@code null} if the property cannot be read.
      * </p>
      * <p>
-     * If a {@code SecurityException} is caught, the return value is {@code null} and a message is written to
+     * If a {@link SecurityException} is caught, the return value is {@code null} and a message is written to
      * {@code System.err}.
      * </p>
      *
@@ -189,6 +191,79 @@ public enum FileSystem {
                     + "'; the SystemUtils property value will default to null.");
             return null;
         }
+    }
+
+    /**
+     * Copied from Apache Commons Lang CharSequenceUtils.
+     *
+     * Returns the index within {@code cs} of the first occurrence of the
+     * specified character, starting the search at the specified index.
+     * <p>
+     * If a character with value {@code searchChar} occurs in the
+     * character sequence represented by the {@code cs}
+     * object at an index no smaller than {@code start}, then
+     * the index of the first such occurrence is returned. For values
+     * of {@code searchChar} in the range from 0 to 0xFFFF (inclusive),
+     * this is the smallest value <i>k</i> such that:
+     * </p>
+     * <blockquote><pre>
+     * (this.charAt(<i>k</i>) == searchChar) &amp;&amp; (<i>k</i> &gt;= start)
+     * </pre></blockquote>
+     * is true. For other values of {@code searchChar}, it is the
+     * smallest value <i>k</i> such that:
+     * <blockquote><pre>
+     * (this.codePointAt(<i>k</i>) == searchChar) &amp;&amp; (<i>k</i> &gt;= start)
+     * </pre></blockquote>
+     * <p>
+     * is true. In either case, if no such character occurs inm {@code cs}
+     * at or after position {@code start}, then
+     * {@code -1} is returned.
+     * </p>
+     * <p>
+     * There is no restriction on the value of {@code start}. If it
+     * is negative, it has the same effect as if it were zero: the entire
+     * {@link CharSequence} may be searched. If it is greater than
+     * the length of {@code cs}, it has the same effect as if it were
+     * equal to the length of {@code cs}: {@code -1} is returned.
+     * </p>
+     * <p>All indices are specified in {@code char} values
+     * (Unicode code units).
+     * </p>
+     *
+     * @param cs  the {@link CharSequence} to be processed, not null
+     * @param searchChar  the char to be searched for
+     * @param start  the start index, negative starts at the string start
+     * @return the index where the search char was found, -1 if not found
+     * @since 3.6 updated to behave more like {@link String}
+     */
+    private static int indexOf(final CharSequence cs, final int searchChar, int start) {
+        if (cs instanceof String) {
+            return ((String) cs).indexOf(searchChar, start);
+        }
+        final int sz = cs.length();
+        if (start < 0) {
+            start = 0;
+        }
+        if (searchChar < Character.MIN_SUPPLEMENTARY_CODE_POINT) {
+            for (int i = start; i < sz; i++) {
+                if (cs.charAt(i) == searchChar) {
+                    return i;
+                }
+            }
+            return -1;
+        }
+        //supplementary characters (LANG1300)
+        if (searchChar <= Character.MAX_CODE_POINT) {
+            final char[] chars = Character.toChars(searchChar);
+            for (int i = start; i < sz - 1; i++) {
+                final char high = cs.charAt(i);
+                final char low = cs.charAt(i + 1);
+                if (high == chars[0] && low == chars[1]) {
+                    return i;
+                }
+            }
+        }
+        return -1;
     }
 
     /**
@@ -221,13 +296,13 @@ public enum FileSystem {
     private static String replace(final String path, final char oldChar, final char newChar) {
         return path == null ? null : path.replace(oldChar, newChar);
     }
-
     private final boolean casePreserving;
     private final boolean caseSensitive;
-    private final char[] illegalFileNameChars;
+    private final int[] illegalFileNameChars;
     private final int maxFileNameLength;
     private final int maxPathLength;
     private final String[] reservedFileNames;
+    private final boolean reservedFileNamesExtensions;
     private final boolean supportsDriveLetter;
     private final char nameSeparator;
 
@@ -236,22 +311,24 @@ public enum FileSystem {
     /**
      * Constructs a new instance.
      *
-     * @param caseSensitive Whether this file system is case sensitive.
-     * @param casePreserving Whether this file system is case preserving.
+     * @param caseSensitive Whether this file system is case-sensitive.
+     * @param casePreserving Whether this file system is case-preserving.
      * @param maxFileLength The maximum length for file names. The file name does not include folders.
      * @param maxPathLength The maximum length of the path to a file. This can include folders.
      * @param illegalFileNameChars Illegal characters for this file system.
      * @param reservedFileNames The reserved file names.
+     * @param reservedFileNamesExtensions TODO
      * @param supportsDriveLetter Whether this file system support driver letters.
      * @param nameSeparator The name separator, '\\' on Windows, '/' on Linux.
      */
     FileSystem(final boolean caseSensitive, final boolean casePreserving, final int maxFileLength,
-        final int maxPathLength, final char[] illegalFileNameChars, final String[] reservedFileNames,
-        final boolean supportsDriveLetter, final char nameSeparator) {
+        final int maxPathLength, final int[] illegalFileNameChars, final String[] reservedFileNames,
+        final boolean reservedFileNamesExtensions, final boolean supportsDriveLetter, final char nameSeparator) {
         this.maxFileNameLength = maxFileLength;
         this.maxPathLength = maxPathLength;
         this.illegalFileNameChars = Objects.requireNonNull(illegalFileNameChars, "illegalFileNameChars");
         this.reservedFileNames = Objects.requireNonNull(reservedFileNames, "reservedFileNames");
+        this.reservedFileNamesExtensions = reservedFileNamesExtensions;
         this.caseSensitive = caseSensitive;
         this.casePreserving = casePreserving;
         this.supportsDriveLetter = supportsDriveLetter;
@@ -265,6 +342,20 @@ public enum FileSystem {
      * @return the illegal characters for this file system.
      */
     public char[] getIllegalFileNameChars() {
+        final char[] chars = new char[illegalFileNameChars.length];
+        for (int i = 0; i < illegalFileNameChars.length; i++) {
+            chars[i] = (char) illegalFileNameChars[i];
+        }
+        return chars;
+    }
+
+    /**
+     * Gets a cloned copy of the illegal code points for this file system.
+     *
+     * @return the illegal code points for this file system.
+     * @since 2.12.0
+     */
+    public int[] getIllegalFileNameCodePoints() {
         return this.illegalFileNameChars.clone();
     }
 
@@ -307,7 +398,7 @@ public enum FileSystem {
     }
 
     /**
-     * Whether this file system preserves case.
+     * Tests whether this file system preserves case.
      *
      * @return Whether this file system preserves case.
      */
@@ -316,7 +407,7 @@ public enum FileSystem {
     }
 
     /**
-     * Whether this file system is case-sensitive.
+     * Tests whether this file system is case-sensitive.
      *
      * @return Whether this file system is case-sensitive.
      */
@@ -325,18 +416,18 @@ public enum FileSystem {
     }
 
     /**
-     * Returns {@code true} if the given character is illegal in a file name, {@code false} otherwise.
+     * Tests if the given character is illegal in a file name, {@code false} otherwise.
      *
      * @param c
      *            the character to test
      * @return {@code true} if the given character is illegal in a file name, {@code false} otherwise.
      */
-    private boolean isIllegalFileNameChar(final char c) {
+    private boolean isIllegalFileNameChar(final int c) {
         return Arrays.binarySearch(illegalFileNameChars, c) >= 0;
     }
 
     /**
-     * Checks if a candidate file name (without a path) such as {@code "filename.ext"} or {@code "filename"} is a
+     * Tests if a candidate file name (without a path) such as {@code "filename.ext"} or {@code "filename"} is a
      * potentially legal file name. If the file name length exceeds {@link #getMaxFileNameLength()}, or if it contains
      * an illegal character then the check fails.
      *
@@ -351,23 +442,19 @@ public enum FileSystem {
         if (isReservedFileName(candidate)) {
             return false;
         }
-        for (int i = 0; i < candidate.length(); i++) {
-            if (isIllegalFileNameChar(candidate.charAt(i))) {
-                return false;
-            }
-        }
-        return true;
+        return candidate.chars().noneMatch(this::isIllegalFileNameChar);
     }
 
     /**
-     * Returns whether the given string is a reserved file name.
+     * Tests whether the given string is a reserved file name.
      *
      * @param candidate
      *            the string to test
      * @return {@code true} if the given string is a reserved file name.
      */
     public boolean isReservedFileName(final CharSequence candidate) {
-        return Arrays.binarySearch(reservedFileNames, candidate) >= 0;
+        final CharSequence test = reservedFileNamesExtensions ? trimExtension(candidate) : candidate;
+        return Arrays.binarySearch(reservedFileNames, test) >= 0;
     }
 
     /**
@@ -411,21 +498,17 @@ public enum FileSystem {
      */
     public String toLegalFileName(final String candidate, final char replacement) {
         if (isIllegalFileNameChar(replacement)) {
-            throw new IllegalArgumentException(
-                    String.format("The replacement character '%s' cannot be one of the %s illegal characters: %s",
-                            // %s does not work properly with NUL
-                            replacement == '\0' ? "\\0" : replacement, name(), Arrays.toString(illegalFileNameChars)));
+            // %s does not work properly with NUL
+            throw new IllegalArgumentException(String.format("The replacement character '%s' cannot be one of the %s illegal characters: %s",
+                replacement == '\0' ? "\\0" : replacement, name(), Arrays.toString(illegalFileNameChars)));
         }
-        final String truncated = candidate.length() > maxFileNameLength ? candidate.substring(0, maxFileNameLength)
-                : candidate;
-        boolean changed = false;
-        final char[] charArray = truncated.toCharArray();
-        for (int i = 0; i < charArray.length; i++) {
-            if (isIllegalFileNameChar(charArray[i])) {
-                charArray[i] = replacement;
-                changed = true;
-            }
-        }
-        return changed ? String.valueOf(charArray) : truncated;
+        final String truncated = candidate.length() > maxFileNameLength ? candidate.substring(0, maxFileNameLength) : candidate;
+        final int[] array = truncated.chars().map(i -> isIllegalFileNameChar(i) ? replacement : i).toArray();
+        return new String(array, 0, array.length);
+    }
+
+    CharSequence trimExtension(final CharSequence cs) {
+        final int index = indexOf(cs, '.', 0);
+        return index < 0 ? cs : cs.subSequence(0, index);
     }
 }

@@ -17,6 +17,7 @@
 package org.apache.commons.io;
 
 import java.util.Objects;
+import java.util.stream.Stream;
 
 /**
  * Enumeration of IO case sensitivity.
@@ -39,12 +40,12 @@ import java.util.Objects;
 public enum IOCase {
 
     /**
-     * The constant for case sensitive regardless of operating system.
+     * The constant for case-sensitive regardless of operating system.
      */
     SENSITIVE("Sensitive", true),
 
     /**
-     * The constant for case insensitive regardless of operating system.
+     * The constant for case-insensitive regardless of operating system.
      */
     INSENSITIVE("Insensitive", false),
 
@@ -53,7 +54,7 @@ public enum IOCase {
      * Windows is case-insensitive when comparing file names, Unix is case-sensitive.
      * <p>
      * <strong>Note:</strong> This only caters for Windows and Unix. Other operating
-     * systems (e.g. OSX and OpenVMS) are treated as case sensitive if they use the
+     * systems (e.g. OSX and OpenVMS) are treated as case-sensitive if they use the
      * Unix file separator and case-insensitive if they use the Windows file separator
      * (see {@link java.io.File#separatorChar}).
      * </p>
@@ -75,12 +76,8 @@ public enum IOCase {
      * @throws IllegalArgumentException if the name is invalid
      */
     public static IOCase forName(final String name) {
-        for (final IOCase ioCase : IOCase.values()) {
-            if (ioCase.getName().equals(name)) {
-                return ioCase;
-            }
-        }
-        throw new IllegalArgumentException("Invalid IOCase name: " + name);
+        return Stream.of(IOCase.values()).filter(ioCase -> ioCase.getName().equals(name)).findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Invalid IOCase name: " + name));
     }
 
     /**
@@ -91,7 +88,7 @@ public enum IOCase {
      * @since 2.10.0
      */
     public static boolean isCaseSensitive(final IOCase ioCase) {
-        return ioCase != null && !ioCase.isCaseSensitive();
+        return ioCase != null && ioCase.isCaseSensitive();
     }
 
     /**
@@ -248,9 +245,9 @@ public enum IOCase {
     }
 
     /**
-     * Does the object represent case sensitive comparison.
+     * Does the object represent case-sensitive comparison.
      *
-     * @return true if case sensitive
+     * @return true if case-sensitive
      */
     public boolean isCaseSensitive() {
         return sensitive;

@@ -24,6 +24,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
 
+import org.apache.commons.io.function.Uncheck;
+
 /**
  * A {@link BufferedReader} that throws {@link UncheckedIOException} instead of {@link IOException}.
  *
@@ -35,7 +37,7 @@ import java.io.UncheckedIOException;
 public class UncheckedFilterInputStream extends FilterInputStream {
 
     /**
-     * Creates a {@code UncheckedFilterInputStream}.
+     * Creates a {@link UncheckedFilterInputStream}.
      *
      * @param inputStream the underlying input stream, or {@code null} if this instance is to be created without an
      *        underlying stream.
@@ -46,7 +48,7 @@ public class UncheckedFilterInputStream extends FilterInputStream {
     }
 
     /**
-     * Creates a {@code UncheckedFilterInputStream}.
+     * Creates a {@link UncheckedFilterInputStream}.
      *
      * @param inputStream the underlying input stream, or {@code null} if this instance is to be created without an
      *        underlying stream.
@@ -60,11 +62,7 @@ public class UncheckedFilterInputStream extends FilterInputStream {
      */
     @Override
     public int available() throws UncheckedIOException {
-        try {
-            return super.available();
-        } catch (final IOException e) {
-            throw uncheck(e);
-        }
+        return Uncheck.get(super::available);
     }
 
     /**
@@ -72,11 +70,7 @@ public class UncheckedFilterInputStream extends FilterInputStream {
      */
     @Override
     public void close() throws UncheckedIOException {
-        try {
-            super.close();
-        } catch (final IOException e) {
-            throw uncheck(e);
-        }
+        Uncheck.run(super::close);
     }
 
     /**
@@ -84,11 +78,7 @@ public class UncheckedFilterInputStream extends FilterInputStream {
      */
     @Override
     public int read() throws UncheckedIOException {
-        try {
-            return super.read();
-        } catch (final IOException e) {
-            throw uncheck(e);
-        }
+        return Uncheck.get(super::read);
     }
 
     /**
@@ -96,11 +86,7 @@ public class UncheckedFilterInputStream extends FilterInputStream {
      */
     @Override
     public int read(final byte[] b) throws UncheckedIOException {
-        try {
-            return super.read(b);
-        } catch (final IOException e) {
-            throw uncheck(e);
-        }
+        return Uncheck.apply(super::read, b);
     }
 
     /**
@@ -108,11 +94,7 @@ public class UncheckedFilterInputStream extends FilterInputStream {
      */
     @Override
     public int read(final byte[] b, final int off, final int len) throws UncheckedIOException {
-        try {
-            return super.read(b, off, len);
-        } catch (final IOException e) {
-            throw uncheck(e);
-        }
+        return Uncheck.apply(super::read, b, off, len);
     }
 
     /**
@@ -120,11 +102,7 @@ public class UncheckedFilterInputStream extends FilterInputStream {
      */
     @Override
     public synchronized void reset() throws UncheckedIOException {
-        try {
-            super.reset();
-        } catch (final IOException e) {
-            throw uncheck(e);
-        }
+        Uncheck.run(super::reset);
     }
 
     /**
@@ -132,15 +110,7 @@ public class UncheckedFilterInputStream extends FilterInputStream {
      */
     @Override
     public long skip(final long n) throws UncheckedIOException {
-        try {
-            return super.skip(n);
-        } catch (final IOException e) {
-            throw uncheck(e);
-        }
-    }
-
-    private UncheckedIOException uncheck(final IOException e) {
-        return new UncheckedIOException(e);
+        return Uncheck.apply(super::skip, n);
     }
 
 }

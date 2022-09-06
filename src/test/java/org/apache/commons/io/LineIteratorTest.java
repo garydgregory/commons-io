@@ -27,6 +27,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.Reader;
 import java.io.StringReader;
+import java.nio.charset.StandardCharsets;
 import java.nio.charset.UnsupportedCharsetException;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
@@ -38,10 +39,11 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * This is used to test LineIterator for correctness.
- *
+ * Tests {@link LineIterator}.
  */
 public class LineIteratorTest {
+
+    private static final String UTF_8 = StandardCharsets.UTF_8.name();
 
     @TempDir
     public File temporaryFolder;
@@ -54,11 +56,7 @@ public class LineIteratorTest {
             }
             assertFalse(iterator.hasNext(), "No more expected");
         } finally {
-            try {
-                IOUtils.close(iterator);
-            } catch (final IOException ignored) {
-                // Ignored
-            }
+            IOUtils.closeQuietly(iterator);
         }
     }
 
@@ -105,9 +103,6 @@ public class LineIteratorTest {
         return lines;
     }
 
-
-    // -----------------------------------------------------------------------
-
     /**
      * Utility method to create and test a file with a specified number of lines.
      *
@@ -116,13 +111,13 @@ public class LineIteratorTest {
      * @throws IOException If an I/O error occurs while creating the file
      */
     private void doTestFileWithSpecifiedLines(final int lineCount) throws IOException {
-        final String encoding = "UTF-8";
+        final String encoding = UTF_8;
 
         final String fileName = "LineIterator-" + lineCount + "-test.txt";
         final File testFile = new File(temporaryFolder, fileName);
         final List<String> lines = createLinesFile(testFile, encoding, lineCount);
 
-        try (final LineIterator iterator = FileUtils.lineIterator(testFile, encoding)) {
+        try (LineIterator iterator = FileUtils.lineIterator(testFile, encoding)) {
             assertThrows(UnsupportedOperationException.class, iterator::remove);
 
             int idx = 0;
@@ -142,12 +137,12 @@ public class LineIteratorTest {
 
     @Test
     public void testCloseEarly() throws Exception {
-        final String encoding = "UTF-8";
+        final String encoding = UTF_8;
 
         final File testFile = new File(temporaryFolder, "LineIterator-closeEarly.txt");
         createLinesFile(testFile, encoding, 3);
 
-        try (final LineIterator iterator = FileUtils.lineIterator(testFile, encoding)) {
+        try (LineIterator iterator = FileUtils.lineIterator(testFile, encoding)) {
             // get
             assertNotNull("Line expected", iterator.next());
             assertTrue(iterator.hasNext(), "More expected");
@@ -166,21 +161,17 @@ public class LineIteratorTest {
 
     @Test
     public void testConstructor() {
-        assertThrows(IllegalArgumentException.class, () -> {
-            try (LineIterator li = new LineIterator(null)) {
-            }
-        });
+        assertThrows(NullPointerException.class, () -> new LineIterator(null));
     }
 
-    private void testFiltering(final List<String> lines, final Reader reader) {
-        final LineIterator iterator = new LineIterator(reader) {
+    private void testFiltering(final List<String> lines, final Reader reader) throws IOException {
+        try (LineIterator iterator = new LineIterator(reader) {
             @Override
             protected boolean isValidLine(final String line) {
                 final char c = line.charAt(line.length() - 1);
                 return (c - 48) % 3 != 1;
             }
-        };
-        try {
+        }) {
             assertThrows(UnsupportedOperationException.class, iterator::remove);
 
             int idx = 0;
@@ -202,18 +193,12 @@ public class LineIteratorTest {
             // try calling next() after file processed
             assertThrows(NoSuchElementException.class, iterator::next);
             assertThrows(NoSuchElementException.class, iterator::nextLine);
-        } finally {
-            try {
-                IOUtils.close(iterator);
-            } catch (final IOException ignored) {
-                // Ignored
-            }
         }
     }
 
     @Test
     public void testFilteringBufferedReader() throws Exception {
-        final String encoding = "UTF-8";
+        final String encoding = UTF_8;
 
         final String fileName = "LineIterator-Filter-test.txt";
         final File testFile = new File(temporaryFolder, fileName);
@@ -223,10 +208,9 @@ public class LineIteratorTest {
         this.testFiltering(lines, reader);
     }
 
-    // -----------------------------------------------------------------------
     @Test
     public void testFilteringFileReader() throws Exception {
-        final String encoding = "UTF-8";
+        final String encoding = UTF_8;
 
         final String fileName = "LineIterator-Filter-test.txt";
         final File testFile = new File(temporaryFolder, fileName);
@@ -241,7 +225,7 @@ public class LineIteratorTest {
         final String encoding = "XXXXXXXX";
 
         final File testFile = new File(temporaryFolder, "LineIterator-invalidEncoding.txt");
-        createLinesFile(testFile, "UTF-8", 3);
+        createLinesFile(testFile, UTF_8, 3);
 
         assertThrows(UnsupportedCharsetException.class, () -> FileUtils.lineIterator(testFile, encoding));
     }
@@ -249,7 +233,7 @@ public class LineIteratorTest {
     @Test
     public void testMissingFile() throws Exception {
         final File testFile = new File(temporaryFolder, "dummy-missing-file.txt");
-        assertThrows(NoSuchFileException.class, () -> FileUtils.lineIterator(testFile, "UTF-8"));
+        assertThrows(NoSuchFileException.class, () -> FileUtils.lineIterator(testFile, UTF_8));
     }
 
     @Test
@@ -274,7 +258,7 @@ public class LineIteratorTest {
 
     @Test
     public void testNextLineOnlyUtf8Encoding() throws Exception {
-        final String encoding = "UTF-8";
+        final String encoding = UTF_8;
 
         final File testFile = new File(temporaryFolder, "LineIterator-nextOnly.txt");
         final List<String> lines = createLinesFile(testFile, encoding, 3);
@@ -290,7 +274,7 @@ public class LineIteratorTest {
         final File testFile = new File(temporaryFolder, "LineIterator-nextOnly.txt");
         final List<String> lines = createLinesFile(testFile, encoding, 3);
 
-        try (final LineIterator iterator = FileUtils.lineIterator(testFile, encoding)) {
+        try (LineIterator iterator = FileUtils.lineIterator(testFile, encoding)) {
             for (int i = 0; i < lines.size(); i++) {
                 final String line = iterator.next();
                 assertEquals(lines.get(i), line, "next() line " + i);
@@ -329,12 +313,12 @@ public class LineIteratorTest {
 
     @Test
     public void testValidEncoding() throws Exception {
-        final String encoding = "UTF-8";
+        final String encoding = UTF_8;
 
         final File testFile = new File(temporaryFolder, "LineIterator-validEncoding.txt");
         createLinesFile(testFile, encoding, 3);
 
-        try (final LineIterator iterator = FileUtils.lineIterator(testFile, encoding)) {
+        try (LineIterator iterator = FileUtils.lineIterator(testFile, encoding)) {
             int count = 0;
             while (iterator.hasNext()) {
                 assertNotNull(iterator.next());

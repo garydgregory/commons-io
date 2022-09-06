@@ -18,16 +18,20 @@
 package org.apache.commons.io.file;
 
 import static org.apache.commons.io.file.CounterAssertions.assertCounts;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 import java.io.IOException;
-import java.nio.file.Files;
+import java.nio.file.CopyOption;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.util.function.Supplier;
 
 import org.apache.commons.io.file.Counters.PathCounters;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
+import org.apache.commons.io.filefilter.TrueFileFilter;
+import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
@@ -36,17 +40,10 @@ import org.junit.jupiter.params.provider.MethodSource;
  */
 public class CopyDirectoryVisitorTest extends TestArguments {
 
+    private static final CopyOption[] EXPECTED_COPY_OPTIONS = {StandardCopyOption.REPLACE_EXISTING};
+
+    @TempDir
     private Path targetDir;
-
-    @AfterEach
-    public void afterEach() throws IOException {
-        PathUtils.deleteDirectory(targetDir);
-    }
-
-    @BeforeEach
-    public void beforeEach() throws IOException {
-        targetDir = Files.createTempDirectory(getClass().getCanonicalName() + "-target");
-    }
 
     /**
      * Tests an empty folder.
@@ -54,12 +51,44 @@ public class CopyDirectoryVisitorTest extends TestArguments {
     @ParameterizedTest
     @MethodSource("pathCounters")
     public void testCopyDirectoryEmptyFolder(final PathCounters pathCounters) throws IOException {
-        final Path sourceDir = Files.createTempDirectory(getClass().getSimpleName());
-        try {
-            assertCounts(1, 0, 0,
-                    PathUtils.visitFileTree(new CopyDirectoryVisitor(pathCounters, sourceDir, targetDir, StandardCopyOption.REPLACE_EXISTING), sourceDir));
-        } finally {
-            Files.deleteIfExists(sourceDir);
+        try (TempDirectory sourceDir = TempDirectory.create(getClass().getSimpleName())) {
+            final Supplier<CopyDirectoryVisitor> supplier = () -> new CopyDirectoryVisitor(pathCounters, sourceDir, targetDir, EXPECTED_COPY_OPTIONS);
+            final CopyDirectoryVisitor visitFileTree = PathUtils.visitFileTree(supplier.get(), sourceDir.get());
+            assertCounts(1, 0, 0, visitFileTree);
+            assertArrayEquals(EXPECTED_COPY_OPTIONS, visitFileTree.getCopyOptions());
+            assertEquals(sourceDir.get(), ((PathWrapper) visitFileTree.getSourceDirectory()).get());
+            assertEquals(sourceDir, visitFileTree.getSourceDirectory());
+            assertEquals(targetDir, visitFileTree.getTargetDirectory());
+            assertEquals(targetDir, visitFileTree.getTargetDirectory());
+            //
+            assertEquals(visitFileTree, supplier.get());
+            assertEquals(visitFileTree.hashCode(), supplier.get().hashCode());
+            assertEquals(visitFileTree, visitFileTree);
+            assertEquals(visitFileTree.hashCode(), visitFileTree.hashCode());
+            assertNotEquals(visitFileTree, "not");
+            assertNotEquals(visitFileTree, CountingPathVisitor.withLongCounters());
+        }
+    }
+
+    /**
+     * Tests an empty folder.
+     */
+    @ParameterizedTest
+    @MethodSource("pathCounters")
+    public void testCopyDirectoryEmptyFolderFilters(final PathCounters pathCounters) throws IOException {
+        try (TempDirectory sourceDir = TempDirectory.create(getClass().getSimpleName())) {
+            final Supplier<CopyDirectoryVisitor> supplier = () -> new CopyDirectoryVisitor(pathCounters, TrueFileFilter.INSTANCE, TrueFileFilter.INSTANCE,
+                sourceDir, targetDir, EXPECTED_COPY_OPTIONS);
+            final CopyDirectoryVisitor visitFileTree = PathUtils.visitFileTree(supplier.get(), sourceDir.get());
+            assertCounts(1, 0, 0, visitFileTree);
+            assertArrayEquals(EXPECTED_COPY_OPTIONS, visitFileTree.getCopyOptions());
+            assertEquals(sourceDir, visitFileTree.getSourceDirectory());
+            assertEquals(targetDir, visitFileTree.getTargetDirectory());
+            //
+            assertEquals(visitFileTree, supplier.get());
+            assertEquals(visitFileTree.hashCode(), supplier.get().hashCode());
+            assertEquals(visitFileTree, visitFileTree);
+            assertEquals(visitFileTree.hashCode(), visitFileTree.hashCode());
         }
     }
 
@@ -70,9 +99,17 @@ public class CopyDirectoryVisitorTest extends TestArguments {
     @MethodSource("pathCounters")
     public void testCopyDirectoryFolders1FileSize0(final PathCounters pathCounters) throws IOException {
         final Path sourceDir = Paths.get("src/test/resources/org/apache/commons/io/dirs-1-file-size-0");
-        assertCounts(1, 1, 0, PathUtils.visitFileTree(
-                new CopyDirectoryVisitor(pathCounters, sourceDir, targetDir, StandardCopyOption.REPLACE_EXISTING),
-                sourceDir));
+        final Supplier<CopyDirectoryVisitor> supplier = () -> new CopyDirectoryVisitor(pathCounters, sourceDir, targetDir, EXPECTED_COPY_OPTIONS);
+        final CopyDirectoryVisitor visitFileTree = PathUtils.visitFileTree(supplier.get(), sourceDir);
+        assertCounts(1, 1, 0, visitFileTree);
+        assertArrayEquals(EXPECTED_COPY_OPTIONS, visitFileTree.getCopyOptions());
+        assertEquals(sourceDir, visitFileTree.getSourceDirectory());
+        assertEquals(targetDir, visitFileTree.getTargetDirectory());
+        //
+        assertEquals(visitFileTree, supplier.get());
+        assertEquals(visitFileTree.hashCode(), supplier.get().hashCode());
+        assertEquals(visitFileTree, visitFileTree);
+        assertEquals(visitFileTree.hashCode(), visitFileTree.hashCode());
     }
 
     /**
@@ -82,9 +119,12 @@ public class CopyDirectoryVisitorTest extends TestArguments {
     @MethodSource("pathCounters")
     public void testCopyDirectoryFolders1FileSize1(final PathCounters pathCounters) throws IOException {
         final Path sourceDir = Paths.get("src/test/resources/org/apache/commons/io/dirs-1-file-size-1");
-        assertCounts(1, 1, 1, PathUtils.visitFileTree(
-                new CopyDirectoryVisitor(pathCounters, sourceDir, targetDir, StandardCopyOption.REPLACE_EXISTING),
-                sourceDir));
+        final CopyDirectoryVisitor visitFileTree = PathUtils.visitFileTree(new CopyDirectoryVisitor(pathCounters, sourceDir, targetDir, EXPECTED_COPY_OPTIONS),
+            sourceDir);
+        assertCounts(1, 1, 1, visitFileTree);
+        assertArrayEquals(EXPECTED_COPY_OPTIONS, visitFileTree.getCopyOptions());
+        assertEquals(sourceDir, visitFileTree.getSourceDirectory());
+        assertEquals(targetDir, visitFileTree.getTargetDirectory());
     }
 
     /**
@@ -94,9 +134,12 @@ public class CopyDirectoryVisitorTest extends TestArguments {
     @MethodSource("pathCounters")
     public void testCopyDirectoryFolders2FileSize2(final PathCounters pathCounters) throws IOException {
         final Path sourceDir = Paths.get("src/test/resources/org/apache/commons/io/dirs-2-file-size-2");
-        assertCounts(3, 2, 2, PathUtils.visitFileTree(
-                new CopyDirectoryVisitor(pathCounters, sourceDir, targetDir, StandardCopyOption.REPLACE_EXISTING),
-                sourceDir));
+        final CopyDirectoryVisitor visitFileTree = PathUtils.visitFileTree(new CopyDirectoryVisitor(pathCounters, sourceDir, targetDir, EXPECTED_COPY_OPTIONS),
+            sourceDir);
+        assertCounts(3, 2, 2, visitFileTree);
+        assertArrayEquals(EXPECTED_COPY_OPTIONS, visitFileTree.getCopyOptions());
+        assertEquals(sourceDir, visitFileTree.getSourceDirectory());
+        assertEquals(targetDir, visitFileTree.getTargetDirectory());
     }
 
 }

@@ -25,12 +25,13 @@ import org.junit.jupiter.api.Test;
 
 /**
  * This is used to test FileUtils.waitFor() method for correctness.
+ * <p>
+ * This class has been broken out from FileUtilsTestCase to solve issues as per BZ 38927
+ * </p>
  *
  * @see FileUtils
  */
 public class FileUtilsWaitForTest {
-    // This class has been broken out from FileUtilsTestCase
-    // to solve issues as per BZ 38927
 
     @Test
     public void testWaitFor0() {
@@ -46,7 +47,7 @@ public class FileUtilsWaitForTest {
         final CountDownLatch started = new CountDownLatch(1);
         final Thread thread1 = new Thread(() -> {
             started.countDown();
-            assertTrue(FileUtils.waitFor(FileUtils.current(), 4));
+            assertTrue(FileUtils.waitFor(FileUtils.current(), 10));
             wasInterrupted.set(Thread.currentThread().isInterrupted());
         });
         thread1.start();

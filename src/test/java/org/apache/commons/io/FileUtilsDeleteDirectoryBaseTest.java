@@ -18,6 +18,7 @@ package org.apache.commons.io;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.File;
@@ -35,6 +36,11 @@ public abstract class FileUtilsDeleteDirectoryBaseTest {
     public File top;
 
     protected abstract boolean setupSymlink(final File res, final File link) throws Exception;
+
+    @Test
+    public void testDeleteDirectoryNullArgument() {
+        assertThrows(NullPointerException.class, () -> FileUtils.deleteDirectory(null));
+    }
 
     @Test
     public void testDeleteDirWithASymlinkDir() throws Exception {

@@ -17,18 +17,25 @@
 
 package org.apache.commons.io.function;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.UncheckedIOException;
+import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
+import org.apache.commons.lang3.ArrayUtils;
 import org.junit.jupiter.api.Test;
 
+/**
+ * Tests {@link IOFunction}.
+ */
 public class IOFunctionTest {
 
     private static class Holder<T> {
@@ -92,7 +99,7 @@ public class IOFunctionTest {
     @Test
     public void testApply() throws IOException {
         final IOFunction<InputStream, Integer> readByte = InputStream::read;
-        final InputStream is = new ByteArrayInputStream(new byte[] { (byte)0xa, (byte)0xb, (byte)0xc});
+        final InputStream is = new ByteArrayInputStream(new byte[] {(byte) 0xa, (byte) 0xb, (byte) 0xc});
         assertEquals(0xa, readByte.apply(is));
         assertEquals(0xb, readByte.apply(is));
         assertEquals(0xc, readByte.apply(is));
@@ -100,15 +107,17 @@ public class IOFunctionTest {
     }
 
     @Test
-    public void testApplyRaisesException() {
-        final IOFunction<InputStream, Integer> raiseException = is -> {
+    public void testApplyThrowsException() {
+        final IOFunction<InputStream, Integer> throwException = function -> {
             throw new IOException("Boom!");
         };
-        final InputStream is = new ByteArrayInputStream(new byte[] { (byte)0xa, (byte)0xb, (byte)0xc});
+        assertThrows(IOException.class, () -> throwException.apply(new ByteArrayInputStream(ArrayUtils.EMPTY_BYTE_ARRAY)));
+    }
 
-        assertThrows(IOException.class, () -> {
-            raiseException.apply(is);
-        });
+    @Test
+    public void testAsFunction() {
+        assertThrows(UncheckedIOException.class, () -> Optional.of("a").map(TestConstants.THROWING_IO_FUNCTION.asFunction()).get());
+        assertEquals("a", Optional.of("a").map(IOFunction.identity().asFunction()).get());
     }
 
     @Test
@@ -157,9 +166,10 @@ public class IOFunctionTest {
 
     @Test
     public void testIdentity() throws IOException {
-        final IOFunction<InputStream, InputStream> identityFunction = IOFunction.identity();
-        try (final InputStream is = new ByteArrayInputStream(new byte[] { (byte) 0xa, (byte) 0xb, (byte) 0xc })) {
-            assertEquals(is, identityFunction.apply(is));
-        }
+        assertEquals(IOFunction.identity(), IOFunction.identity());
+        final IOFunction<byte[], byte[]> identityFunction = IOFunction.identity();
+        final byte[] buf = new byte[] {(byte) 0xa, (byte) 0xb, (byte) 0xc};
+        assertEquals(buf, identityFunction.apply(buf));
+        assertArrayEquals(buf, identityFunction.apply(buf));
     }
 }

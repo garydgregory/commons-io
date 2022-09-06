@@ -25,7 +25,7 @@ import java.lang.reflect.Proxy;
 
 /**
  * A special ObjectInputStream that loads a class based on a specified
- * {@code ClassLoader} rather than the system default.
+ * {@link ClassLoader} rather than the system default.
  * <p>
  * This is useful in dynamic container environments.
  * </p>
@@ -81,7 +81,7 @@ public class ClassLoaderObjectInputStream extends ObjectInputStream {
      * @return a proxy class implementing the interfaces
      * @throws IOException in case of an I/O error
      * @throws ClassNotFoundException if the Class cannot be found
-     * @see java.io.ObjectInputStream#resolveProxyClass(java.lang.String[])
+     * @see java.io.ObjectInputStream#resolveProxyClass(String[])
      * @since 2.1
      */
     @Override

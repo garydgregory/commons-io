@@ -29,6 +29,8 @@ import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.nio.charset.Charset;
+import java.nio.charset.CharsetEncoder;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -121,49 +123,63 @@ public class FileWriterWithEncodingTest {
 
     @Test
     public void sameEncoding_Charset_constructor() throws Exception {
-        try (final FileWriterWithEncoding writer = new FileWriterWithEncoding(file2, Charset.defaultCharset())) {
+        try (FileWriterWithEncoding writer = new FileWriterWithEncoding(file2, Charset.defaultCharset())) {
             successfulRun(writer);
         }
     }
 
     @Test
     public void sameEncoding_CharsetEncoder_constructor() throws Exception {
-        try (final FileWriterWithEncoding writer = new FileWriterWithEncoding(file2, Charset.defaultCharset().newEncoder())) {
+        try (FileWriterWithEncoding writer = new FileWriterWithEncoding(file2, Charset.defaultCharset().newEncoder())) {
             successfulRun(writer);
         }
     }
 
     @Test
     public void sameEncoding_null_Charset_constructor() throws Exception {
-        try (final FileWriterWithEncoding writer = new FileWriterWithEncoding(file2, (Charset) null)) {
+        try (FileWriterWithEncoding writer = new FileWriterWithEncoding(file2, (Charset) null)) {
+            successfulRun(writer);
+        }
+    }
+
+    @Test
+    public void sameEncoding_null_CharsetEncoder_constructor() throws Exception {
+        try (FileWriterWithEncoding writer = new FileWriterWithEncoding(file2.getPath(), (CharsetEncoder) null)) {
+            successfulRun(writer);
+        }
+    }
+
+    @Test
+    public void sameEncoding_null_CharsetName_constructor() throws Exception {
+        try (FileWriterWithEncoding writer = new FileWriterWithEncoding(file2.getPath(), (String) null)) {
             successfulRun(writer);
         }
     }
 
     @Test
     public void sameEncoding_string_Charset_constructor() throws Exception {
-        try (final FileWriterWithEncoding writer = new FileWriterWithEncoding(file2.getPath(), Charset.defaultCharset())) {
+        try (FileWriterWithEncoding writer = new FileWriterWithEncoding(file2.getPath(), Charset.defaultCharset())) {
             successfulRun(writer);
         }
     }
 
     @Test
     public void sameEncoding_string_CharsetEncoder_constructor() throws Exception {
-        try (final FileWriterWithEncoding writer = new FileWriterWithEncoding(file2.getPath(), Charset.defaultCharset().newEncoder())) {
+        try (FileWriterWithEncoding writer = new FileWriterWithEncoding(file2.getPath(), Charset.defaultCharset().newEncoder())) {
             successfulRun(writer);
         }
     }
 
     @Test
     public void sameEncoding_string_constructor() throws Exception {
-        try (final FileWriterWithEncoding writer = new FileWriterWithEncoding(file2, defaultEncoding)) {
+        try (FileWriterWithEncoding writer = new FileWriterWithEncoding(file2, defaultEncoding)) {
             successfulRun(writer);
         }
     }
 
     @Test
     public void sameEncoding_string_string_constructor() throws Exception {
-        try (final FileWriterWithEncoding writer = new FileWriterWithEncoding(file2.getPath(), defaultEncoding)) {
+        try (FileWriterWithEncoding writer = new FileWriterWithEncoding(file2.getPath(), defaultEncoding)) {
             successfulRun(writer);
         }
     }
@@ -196,7 +212,7 @@ public class FileWriterWithEncodingTest {
 
     @Test
     public void testDifferentEncoding() throws Exception {
-        if (Charset.isSupported("UTF-16BE")) {
+        if (Charset.isSupported(StandardCharsets.UTF_16BE.name())) {
             try (FileWriter fw1 = new FileWriter(file1); // default encoding
                 FileWriterWithEncoding fw2 = new FileWriterWithEncoding(file2, defaultEncoding)) {
                 writeTestPayload(fw1, fw2);
@@ -211,7 +227,7 @@ public class FileWriterWithEncodingTest {
             assertTrue(file1.exists());
             assertTrue(file2.exists());
         }
-        if (Charset.isSupported("UTF-16LE")) {
+        if (Charset.isSupported(StandardCharsets.UTF_16LE.name())) {
             try (FileWriter fw1 = new FileWriter(file1); // default encoding
                 FileWriterWithEncoding fw2 = new FileWriterWithEncoding(file2, defaultEncoding)) {
                 writeTestPayload(fw1, fw2);

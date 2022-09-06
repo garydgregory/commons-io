@@ -17,7 +17,9 @@
 package org.apache.commons.io;
 
 import java.io.Serializable;
+import java.nio.charset.StandardCharsets;
 import java.util.Locale;
+import java.util.Objects;
 
 /**
  * Byte Order Mark (BOM) representation - see {@link org.apache.commons.io.input.BOMInputStream}.
@@ -33,13 +35,13 @@ public class ByteOrderMark implements Serializable {
     private static final long serialVersionUID = 1L;
 
     /** UTF-8 BOM. */
-    public static final ByteOrderMark UTF_8    = new ByteOrderMark("UTF-8", 0xEF, 0xBB, 0xBF);
+    public static final ByteOrderMark UTF_8 = new ByteOrderMark(StandardCharsets.UTF_8.name(), 0xEF, 0xBB, 0xBF);
 
     /** UTF-16BE BOM (Big-Endian). */
-    public static final ByteOrderMark UTF_16BE = new ByteOrderMark("UTF-16BE", 0xFE, 0xFF);
+    public static final ByteOrderMark UTF_16BE = new ByteOrderMark(StandardCharsets.UTF_16BE.name(), 0xFE, 0xFF);
 
     /** UTF-16LE BOM (Little-Endian). */
-    public static final ByteOrderMark UTF_16LE = new ByteOrderMark("UTF-16LE", 0xFF, 0xFE);
+    public static final ByteOrderMark UTF_16LE = new ByteOrderMark(StandardCharsets.UTF_16LE.name(), 0xFF, 0xFE);
 
     /**
      * UTF-32BE BOM (Big-Endian).
@@ -67,20 +69,20 @@ public class ByteOrderMark implements Serializable {
     private final int[] bytes;
 
     /**
-     * Constructs a new BOM.
+     * Constructs a new instance.
      *
      * @param charsetName The name of the charset the BOM represents
      * @param bytes The BOM's bytes
-     * @throws IllegalArgumentException if the charsetName is null or
-     * zero length
-     * @throws IllegalArgumentException if the bytes are null or zero
-     * length
+     * @throws IllegalArgumentException if the charsetName is zero length
+     * @throws IllegalArgumentException if the bytes are zero length
      */
     public ByteOrderMark(final String charsetName, final int... bytes) {
-        if (charsetName == null || charsetName.isEmpty()) {
+        Objects.requireNonNull(charsetName, "charsetName");
+        Objects.requireNonNull(bytes, "bytes");
+        if (charsetName.isEmpty()) {
             throw new IllegalArgumentException("No charsetName specified");
         }
-        if (bytes == null || bytes.length == 0) {
+        if (bytes.length == 0) {
             throw new IllegalArgumentException("No bytes specified");
         }
         this.charsetName = charsetName;
@@ -88,7 +90,7 @@ public class ByteOrderMark implements Serializable {
     }
 
     /**
-     * Indicates if this BOM's bytes equals another.
+     * Indicates if this instance's bytes equals another.
      *
      * @param obj The object to compare to
      * @return true if the bom's bytes are equal, otherwise
@@ -99,7 +101,7 @@ public class ByteOrderMark implements Serializable {
         if (!(obj instanceof ByteOrderMark)) {
             return false;
         }
-        final ByteOrderMark bom = (ByteOrderMark)obj;
+        final ByteOrderMark bom = (ByteOrderMark) obj;
         if (bytes.length != bom.length()) {
             return false;
         }
@@ -129,7 +131,7 @@ public class ByteOrderMark implements Serializable {
     public byte[] getBytes() {
         final byte[] copy = IOUtils.byteArray(bytes.length);
         for (int i = 0; i < bytes.length; i++) {
-            copy[i] = (byte)bytes[i];
+            copy[i] = (byte) bytes[i];
         }
         return copy;
     }
@@ -147,7 +149,7 @@ public class ByteOrderMark implements Serializable {
      * Computes the hashcode for this BOM.
      *
      * @return the hashcode for this BOM.
-     * @see java.lang.Object#hashCode()
+     * @see Object#hashCode()
      */
     @Override
     public int hashCode() {

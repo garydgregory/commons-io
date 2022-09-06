@@ -193,7 +193,7 @@ public class TailerTest {
 
     protected void createFile(final File file, final long size) throws IOException {
         assertTrue(file.getParentFile().exists(), () -> "Cannot create file " + file + " as the parent directory does not exist");
-        try (final BufferedOutputStream output = new BufferedOutputStream(Files.newOutputStream(file.toPath()))) {
+        try (BufferedOutputStream output = new BufferedOutputStream(Files.newOutputStream(file.toPath()))) {
             TestUtils.generateTestData(output, size);
         }
 
@@ -245,9 +245,9 @@ public class TailerTest {
         final File file = new File(temporaryFolder, "tailer-create-with-delay-and-from-start-with-reopen-and-buffersize-and-charset.txt");
         createFile(file, 0);
         final TestTailerListener listener = new TestTailerListener(1);
-        try (final Tailer tailer = new Tailer.Builder(new NonStandardTailable(file), listener).build()) {
+        try (Tailer tailer = new Tailer.Builder(new NonStandardTailable(file), listener).build()) {
             assertTrue(tailer.getTailable() instanceof NonStandardTailable);
-            validateTailer(listener, tailer, file);
+            validateTailer(listener, file);
         }
     }
 
@@ -256,8 +256,8 @@ public class TailerTest {
         final File file = new File(temporaryFolder, "tailer-create.txt");
         createFile(file, 0);
         final TestTailerListener listener = new TestTailerListener(1);
-        try (final Tailer tailer = Tailer.create(file, listener)) {
-            validateTailer(listener, tailer, file);
+        try (Tailer tailer = Tailer.create(file, listener)) {
+            validateTailer(listener, file);
         }
     }
 
@@ -266,8 +266,8 @@ public class TailerTest {
         final File file = new File(temporaryFolder, "tailer-create-with-delay-and-from-start-with-reopen.txt");
         createFile(file, 0);
         final TestTailerListener listener = new TestTailerListener(1);
-        try (final Tailer tailer = Tailer.create(file, listener, TEST_DELAY_MILLIS, false, false)) {
-            validateTailer(listener, tailer, file);
+        try (Tailer tailer = Tailer.create(file, listener, TEST_DELAY_MILLIS, false, false)) {
+            validateTailer(listener, file);
         }
     }
 
@@ -276,8 +276,8 @@ public class TailerTest {
         final File file = new File(temporaryFolder, "tailer-create-with-delay.txt");
         createFile(file, 0);
         final TestTailerListener listener = new TestTailerListener(1);
-        try (final Tailer tailer = Tailer.create(file, listener, TEST_DELAY_MILLIS)) {
-            validateTailer(listener, tailer, file);
+        try (Tailer tailer = Tailer.create(file, listener, TEST_DELAY_MILLIS)) {
+            validateTailer(listener, file);
         }
     }
 
@@ -286,8 +286,8 @@ public class TailerTest {
         final File file = new File(temporaryFolder, "tailer-create-with-delay-and-from-start.txt");
         createFile(file, 0);
         final TestTailerListener listener = new TestTailerListener(1);
-        try (final Tailer tailer = Tailer.create(file, listener, TEST_DELAY_MILLIS, false)) {
-            validateTailer(listener, tailer, file);
+        try (Tailer tailer = Tailer.create(file, listener, TEST_DELAY_MILLIS, false)) {
+            validateTailer(listener, file);
         }
     }
 
@@ -296,8 +296,8 @@ public class TailerTest {
         final File file = new File(temporaryFolder, "tailer-create-with-delay-and-from-start-with-buffersize.txt");
         createFile(file, 0);
         final TestTailerListener listener = new TestTailerListener(1);
-        try (final Tailer tailer = Tailer.create(file, listener, TEST_DELAY_MILLIS, false, TEST_BUFFER_SIZE)) {
-            validateTailer(listener, tailer, file);
+        try (Tailer tailer = Tailer.create(file, listener, TEST_DELAY_MILLIS, false, TEST_BUFFER_SIZE)) {
+            validateTailer(listener, file);
         }
     }
 
@@ -306,8 +306,8 @@ public class TailerTest {
         final File file = new File(temporaryFolder, "tailer-create-with-delay-and-from-start-with-reopen-and-buffersize.txt");
         createFile(file, 0);
         final TestTailerListener listener = new TestTailerListener(1);
-        try (final Tailer tailer = Tailer.create(file, listener, TEST_DELAY_MILLIS, false, true, TEST_BUFFER_SIZE)) {
-            validateTailer(listener, tailer, file);
+        try (Tailer tailer = Tailer.create(file, listener, TEST_DELAY_MILLIS, false, true, TEST_BUFFER_SIZE)) {
+            validateTailer(listener, file);
         }
     }
 
@@ -316,8 +316,8 @@ public class TailerTest {
         final File file = new File(temporaryFolder, "tailer-create-with-delay-and-from-start-with-reopen-and-buffersize-and-charset.txt");
         createFile(file, 0);
         final TestTailerListener listener = new TestTailerListener(1);
-        try (final Tailer tailer = Tailer.create(file, StandardCharsets.UTF_8, listener, TEST_DELAY_MILLIS, false, true, TEST_BUFFER_SIZE)) {
-            validateTailer(listener, tailer, file);
+        try (Tailer tailer = Tailer.create(file, StandardCharsets.UTF_8, listener, TEST_DELAY_MILLIS, false, true, TEST_BUFFER_SIZE)) {
+            validateTailer(listener, file);
         }
     }
 
@@ -379,7 +379,7 @@ public class TailerTest {
 
         final File file = new File(temporaryFolder, "testLongFile.txt");
         createFile(file, 0);
-        try (final Writer writer = Files.newBufferedWriter(file.toPath(), StandardOpenOption.APPEND)) {
+        try (Writer writer = Files.newBufferedWriter(file.toPath(), StandardOpenOption.APPEND)) {
             for (int i = 0; i < 100000; i++) {
                 writer.write("LineLineLineLineLineLineLineLineLineLine\n");
             }
@@ -451,10 +451,10 @@ public class TailerTest {
         final File file = new File(temporaryFolder, "tailer-simple-constructor.txt");
         createFile(file, 0);
         final TestTailerListener listener = new TestTailerListener(1);
-        try (final Tailer tailer = new Tailer(file, listener)) {
+        try (Tailer tailer = new Tailer(file, listener)) {
             final Thread thread = new Thread(tailer);
             thread.start();
-            validateTailer(listener, tailer, file);
+            validateTailer(listener, file);
         }
     }
 
@@ -463,10 +463,10 @@ public class TailerTest {
         final File file = new File(temporaryFolder, "tailer-simple-constructor-with-delay.txt");
         createFile(file, 0);
         final TestTailerListener listener = new TestTailerListener(1);
-        try (final Tailer tailer = new Tailer(file, listener, TEST_DELAY_MILLIS)) {
+        try (Tailer tailer = new Tailer(file, listener, TEST_DELAY_MILLIS)) {
             final Thread thread = new Thread(tailer);
             thread.start();
-            validateTailer(listener, tailer, file);
+            validateTailer(listener, file);
         }
     }
 
@@ -475,10 +475,10 @@ public class TailerTest {
         final File file = new File(temporaryFolder, "tailer-simple-constructor-with-delay-and-from-start.txt");
         createFile(file, 0);
         final TestTailerListener listener = new TestTailerListener(1);
-        try (final Tailer tailer = new Tailer(file, listener, TEST_DELAY_MILLIS, false)) {
+        try (Tailer tailer = new Tailer(file, listener, TEST_DELAY_MILLIS, false)) {
             final Thread thread = new Thread(tailer);
             thread.start();
-            validateTailer(listener, tailer, file);
+            validateTailer(listener, file);
         }
     }
 
@@ -487,10 +487,10 @@ public class TailerTest {
         final File file = new File(temporaryFolder, "tailer-simple-constructor-with-delay-and-from-start-with-buffersize.txt");
         createFile(file, 0);
         final TestTailerListener listener = new TestTailerListener(1);
-        try (final Tailer tailer = new Tailer(file, listener, TEST_DELAY_MILLIS, false, TEST_BUFFER_SIZE)) {
+        try (Tailer tailer = new Tailer(file, listener, TEST_DELAY_MILLIS, false, TEST_BUFFER_SIZE)) {
             final Thread thread = new Thread(tailer);
             thread.start();
-            validateTailer(listener, tailer, file);
+            validateTailer(listener, file);
         }
     }
 
@@ -499,10 +499,10 @@ public class TailerTest {
         final File file = new File(temporaryFolder, "tailer-simple-constructor-with-delay-and-from-start-with-reopen.txt");
         createFile(file, 0);
         final TestTailerListener listener = new TestTailerListener(1);
-        try (final Tailer tailer = new Tailer(file, listener, TEST_DELAY_MILLIS, false, false)) {
+        try (Tailer tailer = new Tailer(file, listener, TEST_DELAY_MILLIS, false, false)) {
             final Thread thread = new Thread(tailer);
             thread.start();
-            validateTailer(listener, tailer, file);
+            validateTailer(listener, file);
         }
     }
 
@@ -511,10 +511,10 @@ public class TailerTest {
         final File file = new File(temporaryFolder, "tailer-simple-constructor-with-delay-and-from-start-with-reopen-and-buffersize.txt");
         createFile(file, 0);
         final TestTailerListener listener = new TestTailerListener(1);
-        try (final Tailer tailer = new Tailer(file, listener, TEST_DELAY_MILLIS, false, true, TEST_BUFFER_SIZE)) {
+        try (Tailer tailer = new Tailer(file, listener, TEST_DELAY_MILLIS, false, true, TEST_BUFFER_SIZE)) {
             final Thread thread = new Thread(tailer);
             thread.start();
-            validateTailer(listener, tailer, file);
+            validateTailer(listener, file);
         }
     }
 
@@ -523,10 +523,10 @@ public class TailerTest {
         final File file = new File(temporaryFolder, "tailer-simple-constructor-with-delay-and-from-start-with-reopen-and-buffersize-and-charset.txt");
         createFile(file, 0);
         final TestTailerListener listener = new TestTailerListener(1);
-        try (final Tailer tailer = new Tailer(file, StandardCharsets.UTF_8, listener, TEST_DELAY_MILLIS, false, true, TEST_BUFFER_SIZE)) {
+        try (Tailer tailer = new Tailer(file, StandardCharsets.UTF_8, listener, TEST_DELAY_MILLIS, false, true, TEST_BUFFER_SIZE)) {
             final Thread thread = new Thread(tailer);
             thread.start();
-            validateTailer(listener, tailer, file);
+            validateTailer(listener, file);
         }
     }
 
@@ -601,7 +601,7 @@ public class TailerTest {
             listener.clear();
 
             // Check file does actually have all the lines
-            lines = FileUtils.readLines(file, "UTF-8");
+            lines = FileUtils.readLines(file, StandardCharsets.UTF_8);
             assertEquals(3, lines.size(), "3 line count");
             assertEquals("Line one", lines.get(0), "3 line 1");
             assertEquals("Line two", lines.get(1), "3 line 2");
@@ -632,7 +632,7 @@ public class TailerTest {
             assertEquals(1, listener.initialized, "Expected init to be called");
             // assertEquals(0 , listener.notFound, "fileNotFound should not be called"); // there is a window when it might be
             // called
-            assertEquals(1, listener.rotated, "fileRotated should be be called");
+            assertEquals(1, listener.rotated, "fileRotated should be called");
         }
     }
 
@@ -696,7 +696,7 @@ public class TailerTest {
         }
     }
 
-    private void validateTailer(final TestTailerListener listener, final Tailer tailer, final File file) throws Exception {
+    private void validateTailer(final TestTailerListener listener, final File file) throws IOException, InterruptedException {
         write(file, "foo");
         final int timeout = 30;
         final TimeUnit timeoutUnit = TimeUnit.SECONDS;
@@ -705,7 +705,7 @@ public class TailerTest {
     }
 
     /** Appends lines to a file */
-    private void write(final File file, final String... lines) throws Exception {
+    private void write(final File file, final String... lines) throws IOException {
         try (Writer writer = Files.newBufferedWriter(file.toPath(), StandardOpenOption.APPEND)) {
             for (final String line : lines) {
                 writer.write(line + "\n");
@@ -714,7 +714,7 @@ public class TailerTest {
     }
 
     /** Appends strings to a file */
-    private void writeString(final File file, final String... strings) throws Exception {
+    private void writeString(final File file, final String... strings) throws IOException {
         try (Writer writer = Files.newBufferedWriter(file.toPath(), StandardOpenOption.APPEND)) {
             for (final String string : strings) {
                 writer.write(string);

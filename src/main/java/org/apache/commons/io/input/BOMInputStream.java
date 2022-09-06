@@ -23,6 +23,7 @@ import java.io.InputStream;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 
 import org.apache.commons.io.ByteOrderMark;
 import org.apache.commons.io.IOUtils;
@@ -34,7 +35,7 @@ import org.apache.commons.io.IOUtils;
  * first byte in the stream.
  * </p>
  * <p>
- * The {@link ByteOrderMark} implementation has the following pre-defined BOMs:
+ * The {@link ByteOrderMark} implementation has the following predefined BOMs:
  * </p>
  * <ul>
  * <li>UTF-8 - {@link ByteOrderMark#UTF_8}</li>
@@ -88,15 +89,14 @@ import org.apache.commons.io.IOUtils;
  * @since 2.0
  */
 public class BOMInputStream extends ProxyInputStream {
+
     /**
      * Compares ByteOrderMark objects in descending length order.
      */
-    private static final Comparator<ByteOrderMark> ByteOrderMarkLengthComparator = (bom1, bom2) -> {
-        final int len1 = bom1.length();
-        final int len2 = bom2.length();
-        return Integer.compare(len2, len1);
-    };
+    private static final Comparator<ByteOrderMark> ByteOrderMarkLengthComparator = (bom1, bom2) -> Integer.compare(bom2.length(), bom1.length());
+
     private final boolean include;
+
     /**
      * BOMs are sorted from longest to shortest.
      */
@@ -106,7 +106,6 @@ public class BOMInputStream extends ProxyInputStream {
     private int fbLength;
     private int fbIndex;
     private int markFbIndex;
-
     private boolean markedAtStart;
 
     /**
@@ -120,7 +119,7 @@ public class BOMInputStream extends ProxyInputStream {
     }
 
     /**
-     * Constructs a new BOM InputStream that detects a a {@link ByteOrderMark#UTF_8} and optionally includes it.
+     * Constructs a new BOM InputStream that detects a {@link ByteOrderMark#UTF_8} and optionally includes it.
      *
      * @param delegate
      *            the InputStream to delegate to
@@ -172,16 +171,11 @@ public class BOMInputStream extends ProxyInputStream {
      * @return The matched BOM or null if none matched
      */
     private ByteOrderMark find() {
-        for (final ByteOrderMark bom : boms) {
-            if (matches(bom)) {
-                return bom;
-            }
-        }
-        return null;
+        return boms.stream().filter(this::matches).findFirst().orElse(null);
     }
 
     /**
-     * Return the BOM (Byte Order Mark).
+     * Gets the BOM (Byte Order Mark).
      *
      * @return The BOM or null if none
      * @throws IOException
@@ -203,7 +197,7 @@ public class BOMInputStream extends ProxyInputStream {
             }
             // match BOM in firstBytes
             byteOrderMark = find();
-            if ((byteOrderMark != null) && !include) {
+            if (byteOrderMark != null && !include) {
                 if (byteOrderMark.length() < firstBytes.length) {
                     fbIndex = byteOrderMark.length();
                 } else {
@@ -215,7 +209,7 @@ public class BOMInputStream extends ProxyInputStream {
     }
 
     /**
-     * Return the BOM charset Name - {@link ByteOrderMark#getCharsetName()}.
+     * Gets the BOM charset Name - {@link ByteOrderMark#getCharsetName()}.
      *
      * @return The BOM charset Name or null if no BOM found
      * @throws IOException
@@ -228,7 +222,7 @@ public class BOMInputStream extends ProxyInputStream {
     }
 
     /**
-     * Indicates whether the stream contains one of the specified BOMs.
+     * Tests whether the stream contains one of the specified BOMs.
      *
      * @return true if the stream has one of the specified BOMs, otherwise false if it does not
      * @throws IOException
@@ -239,7 +233,7 @@ public class BOMInputStream extends ProxyInputStream {
     }
 
     /**
-     * Indicates whether the stream contains the specified BOM.
+     * Tests whether the stream contains the specified BOM.
      *
      * @param bom
      *            The BOM to check for
@@ -251,10 +245,9 @@ public class BOMInputStream extends ProxyInputStream {
      */
     public boolean hasBOM(final ByteOrderMark bom) throws IOException {
         if (!boms.contains(bom)) {
-            throw new IllegalArgumentException("Stream not configure to detect " + bom);
+            throw new IllegalArgumentException("Stream not configured to detect " + bom);
         }
-        getBOM();
-        return byteOrderMark != null && byteOrderMark.equals(bom);
+        return Objects.equals(getBOM(), bom);
     }
 
     /**
@@ -271,7 +264,7 @@ public class BOMInputStream extends ProxyInputStream {
     }
 
     /**
-     * Check if the bytes match a BOM.
+     * Checks if the bytes match a BOM.
      *
      * @param bom
      *            The BOM
@@ -289,10 +282,6 @@ public class BOMInputStream extends ProxyInputStream {
         }
         return true;
     }
-
-    // ----------------------------------------------------------------------------
-    // Implementation of InputStream
-    // ----------------------------------------------------------------------------
 
     /**
      * Invokes the delegate's {@code read()} method, detecting and optionally skipping BOM.
@@ -392,7 +381,7 @@ public class BOMInputStream extends ProxyInputStream {
     @Override
     public long skip(final long n) throws IOException {
         int skipped = 0;
-        while ((n > skipped) && (readFirstBytes() >= 0)) {
+        while (n > skipped && readFirstBytes() >= 0) {
             skipped++;
         }
         return in.skip(n - skipped) + skipped;

@@ -17,7 +17,6 @@
 package org.apache.commons.io.filefilter;
 
 import java.io.File;
-import java.io.IOException;
 import java.io.Serializable;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
@@ -25,7 +24,7 @@ import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributes;
 
 /**
- * This filter accepts {@code File}s that are hidden.
+ * This filter accepts {@link File}s that are hidden.
  * <p>
  * Example, showing how to print out a list of the
  * current directory's <i>hidden</i> files:
@@ -111,11 +110,7 @@ public class HiddenFileFilter extends AbstractFileFilter implements Serializable
      */
     @Override
     public FileVisitResult accept(final Path file, final BasicFileAttributes attributes) {
-        try {
-            return toFileVisitResult(Files.isHidden(file));
-        } catch (final IOException e) {
-            return handle(e);
-        }
+        return get(() -> toFileVisitResult(Files.isHidden(file)));
     }
 
 }

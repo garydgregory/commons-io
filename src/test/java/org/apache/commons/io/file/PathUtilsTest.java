@@ -20,41 +20,50 @@ package org.apache.commons.io.file;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertThrowsExactly;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeFalse;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.DirectoryStream;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.attribute.DosFileAttributeView;
-import java.nio.file.attribute.PosixFileAttributeView;
+import java.nio.file.attribute.FileTime;
 import java.nio.file.attribute.PosixFileAttributes;
-import java.nio.file.attribute.PosixFilePermission;
+import java.util.GregorianCalendar;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
-import java.util.Set;
 
+import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.io.filefilter.NameFileFilter;
 import org.apache.commons.io.test.TestUtils;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.SystemUtils;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 
 /**
  * Tests {@link PathUtils}.
  */
-public class PathUtilsTest extends TestArguments {
+public class PathUtilsTest extends AbstractTempDirTest {
 
     private static final String STRING_FIXTURE = "Hello World";
 
@@ -67,10 +76,34 @@ public class PathUtilsTest extends TestArguments {
     private static final String PATH_FIXTURE = "NOTICE.txt";
 
     /**
-     * A temporary directory managed by JUnit.
+     * Creates directory test fixtures.
+     * <ol>
+     * <li>tempDirPath/subdir</li>
+     * <li>tempDirPath/symlinked-dir -> tempDirPath/subdir</li>
+     * </ol>
+     *
+     * @return Path to tempDirPath/subdir
+     * @throws IOException if an I/O error occurs or the parent directory does not exist.
      */
-    @TempDir
-    public Path tempDir;
+    private Path createTempSymlinkedRelativeDir() throws IOException {
+        final Path targetDir = tempDirPath.resolve("subdir");
+        final Path symlinkDir = tempDirPath.resolve("symlinked-dir");
+        Files.createDirectory(targetDir);
+        Files.createSymbolicLink(symlinkDir, targetDir);
+        return symlinkDir;
+    }
+
+    private Path current() {
+        return PathUtils.current();
+    }
+
+    private Long getLastModifiedMillis(final Path file) throws IOException {
+        return Files.getLastModifiedTime(file).toMillis();
+    }
+
+    private Path getNonExistantPath() {
+        return Paths.get("/does not exist/for/certain");
+    }
 
     private FileSystem openArchive(final Path p, final boolean createNew) throws IOException {
         if (createNew) {
@@ -83,25 +116,29 @@ public class PathUtilsTest extends TestArguments {
         return FileSystems.newFileSystem(p, (ClassLoader) null);
     }
 
+    private void setLastModifiedMillis(final Path file, final long millis) throws IOException {
+        Files.setLastModifiedTime(file, FileTime.fromMillis(millis));
+    }
+
     @Test
     public void testCopyDirectoryForDifferentFilesystemsWithAbsolutePath() throws IOException {
         final Path archivePath = Paths.get(TEST_JAR_PATH);
-        try (final FileSystem archive = openArchive(archivePath, false)) {
+        try (FileSystem archive = openArchive(archivePath, false)) {
             // relative jar -> absolute dir
             Path sourceDir = archive.getPath("dir1");
-            PathUtils.copyDirectory(sourceDir, tempDir);
-            assertTrue(Files.exists(tempDir.resolve("f1")));
+            PathUtils.copyDirectory(sourceDir, tempDirPath);
+            assertTrue(Files.exists(tempDirPath.resolve("f1")));
 
             // absolute jar -> absolute dir
             sourceDir = archive.getPath("/next");
-            PathUtils.copyDirectory(sourceDir, tempDir);
-            assertTrue(Files.exists(tempDir.resolve("dir")));
+            PathUtils.copyDirectory(sourceDir, tempDirPath);
+            assertTrue(Files.exists(tempDirPath.resolve("dir")));
         }
     }
 
     @Test
     public void testCopyDirectoryForDifferentFilesystemsWithAbsolutePathReverse() throws IOException {
-        try (final FileSystem archive = openArchive(tempDir.resolve(TEST_JAR_NAME), true)) {
+        try (FileSystem archive = openArchive(tempDirPath.resolve(TEST_JAR_NAME), true)) {
             // absolute dir -> relative jar
             Path targetDir = archive.getPath("target");
             Files.createDirectory(targetDir);
@@ -119,7 +156,7 @@ public class PathUtilsTest extends TestArguments {
     @Test
     public void testCopyDirectoryForDifferentFilesystemsWithRelativePath() throws IOException {
         final Path archivePath = Paths.get(TEST_JAR_PATH);
-        try (final FileSystem archive = openArchive(archivePath, false); final FileSystem targetArchive = openArchive(tempDir.resolve(TEST_JAR_NAME), true)) {
+        try (FileSystem archive = openArchive(archivePath, false); final FileSystem targetArchive = openArchive(tempDirPath.resolve(TEST_JAR_NAME), true)) {
             final Path targetDir = targetArchive.getPath("targetDir");
             Files.createDirectory(targetDir);
             // relative jar -> relative dir
@@ -136,7 +173,7 @@ public class PathUtilsTest extends TestArguments {
 
     @Test
     public void testCopyDirectoryForDifferentFilesystemsWithRelativePathReverse() throws IOException {
-        try (final FileSystem archive = openArchive(tempDir.resolve(TEST_JAR_NAME), true)) {
+        try (FileSystem archive = openArchive(tempDirPath.resolve(TEST_JAR_NAME), true)) {
             // relative dir -> relative jar
             Path targetDir = archive.getPath("target");
             Files.createDirectory(targetDir);
@@ -154,19 +191,91 @@ public class PathUtilsTest extends TestArguments {
     @Test
     public void testCopyFile() throws IOException {
         final Path sourceFile = Paths.get("src/test/resources/org/apache/commons/io/dirs-1-file-size-1/file-size-1.bin");
-        final Path targetFile = PathUtils.copyFileToDirectory(sourceFile, tempDir);
+        final Path targetFile = PathUtils.copyFileToDirectory(sourceFile, tempDirPath);
+        assertTrue(Files.exists(targetFile));
+        assertEquals(Files.size(sourceFile), Files.size(targetFile));
+    }
+
+    @Test
+    public void testCopyURL() throws IOException {
+        final Path sourceFile = Paths.get("src/test/resources/org/apache/commons/io/dirs-1-file-size-1/file-size-1.bin");
+        final URL url = new URL("file:///" + FilenameUtils.getPath(sourceFile.toAbsolutePath().toString()) + sourceFile.getFileName());
+        final Path targetFile = PathUtils.copyFileToDirectory(url, tempDirPath);
         assertTrue(Files.exists(targetFile));
         assertEquals(Files.size(sourceFile), Files.size(targetFile));
     }
 
     @Test
     public void testCreateDirectoriesAlreadyExists() throws IOException {
-        assertEquals(tempDir.getParent(), PathUtils.createParentDirectories(tempDir));
+        assertEquals(tempDirPath.getParent(), PathUtils.createParentDirectories(tempDirPath));
+    }
+
+    @SuppressWarnings("resource") // FileSystems.getDefault() is a singleton
+    @Test
+    public void testCreateDirectoriesForRoots() throws IOException {
+        for (final Path path : FileSystems.getDefault().getRootDirectories()) {
+            final Path parent = path.getParent();
+            assertNull(parent);
+            assertEquals(parent, PathUtils.createParentDirectories(path));
+        }
+    }
+
+    @Test
+    public void testCreateDirectoriesForRootsLinkOptionNull() throws IOException {
+        for (final File f : File.listRoots()) {
+            final Path path = f.toPath();
+            assertEquals(path.getParent(), PathUtils.createParentDirectories(path, (LinkOption) null));
+        }
     }
 
     @Test
     public void testCreateDirectoriesNew() throws IOException {
-        assertEquals(tempDir, PathUtils.createParentDirectories(tempDir.resolve("child")));
+        assertEquals(tempDirPath, PathUtils.createParentDirectories(tempDirPath.resolve("child")));
+    }
+
+    @Test
+    public void testCreateDirectoriesSymlink() throws IOException {
+        final Path symlinkedDir = createTempSymlinkedRelativeDir();
+        final String leafDirName = "child";
+        final Path newDirFollowed = PathUtils.createParentDirectories(symlinkedDir.resolve(leafDirName), PathUtils.NULL_LINK_OPTION);
+        assertEquals(Files.readSymbolicLink(symlinkedDir), newDirFollowed);
+    }
+
+    @Test
+    public void testCreateDirectoriesSymlinkClashing() throws IOException {
+        final Path symlinkedDir = createTempSymlinkedRelativeDir();
+        assertThrowsExactly(FileAlreadyExistsException.class, () -> PathUtils.createParentDirectories(symlinkedDir.resolve("child")));
+    }
+
+    @Test
+    public void testGetLastModifiedFileTime_File_Present() throws IOException {
+        assertNotNull(PathUtils.getLastModifiedFileTime(current().toFile()));
+    }
+
+    @Test
+    public void testGetLastModifiedFileTime_Path_Absent() throws IOException {
+        assertNull(PathUtils.getLastModifiedFileTime(getNonExistantPath()));
+    }
+
+    @Test
+    public void testGetLastModifiedFileTime_Path_FileTime_Absent() throws IOException {
+        final FileTime fromMillis = FileTime.fromMillis(0);
+        assertEquals(fromMillis, PathUtils.getLastModifiedFileTime(getNonExistantPath(), fromMillis));
+    }
+
+    @Test
+    public void testGetLastModifiedFileTime_Path_Present() throws IOException {
+        assertNotNull(PathUtils.getLastModifiedFileTime(current()));
+    }
+
+    @Test
+    public void testGetLastModifiedFileTime_URI_Present() throws IOException {
+        assertNotNull(PathUtils.getLastModifiedFileTime(current().toUri()));
+    }
+
+    @Test
+    public void testGetLastModifiedFileTime_URL_Present() throws IOException, URISyntaxException {
+        assertNotNull(PathUtils.getLastModifiedFileTime(current().toUri().toURL()));
     }
 
     @Test
@@ -179,44 +288,48 @@ public class PathUtilsTest extends TestArguments {
     public void testIsDirectory() throws IOException {
         assertFalse(PathUtils.isDirectory(null));
 
-        assertTrue(PathUtils.isDirectory(tempDir));
-        final Path testFile1 = Files.createTempFile(tempDir, "prefix", null);
-        assertFalse(PathUtils.isDirectory(testFile1));
+        assertTrue(PathUtils.isDirectory(tempDirPath));
+        try (TempFile testFile1 = TempFile.create(tempDirPath, "prefix", null)) {
+            assertFalse(PathUtils.isDirectory(testFile1.get()));
 
-        final Path tempDir = Files.createTempDirectory(getClass().getCanonicalName());
-        Files.delete(tempDir);
-        assertFalse(PathUtils.isDirectory(tempDir));
+            Path ref = null;
+            try (TempDirectory tempDir = TempDirectory.create(getClass().getCanonicalName())) {
+                ref = tempDir.get();
+                assertTrue(PathUtils.isDirectory(tempDir.get()));
+            }
+            assertFalse(PathUtils.isDirectory(ref));
+        }
     }
 
     @Test
     public void testIsPosix() throws IOException {
         boolean isPosix;
         try {
-            Files.getPosixFilePermissions(PathUtils.current());
+            Files.getPosixFilePermissions(current());
             isPosix = true;
-        } catch (UnsupportedOperationException e) {
+        } catch (final UnsupportedOperationException e) {
             isPosix = false;
         }
-        assertEquals(isPosix, PathUtils.isPosix(PathUtils.current()));
-        assertEquals(false, PathUtils.isPosix(Paths.get("does not.exist")));
+        assertEquals(isPosix, PathUtils.isPosix(current()));
     }
 
     @Test
     public void testIsRegularFile() throws IOException {
         assertFalse(PathUtils.isRegularFile(null));
 
-        assertFalse(PathUtils.isRegularFile(tempDir));
-        final Path testFile1 = Files.createTempFile(tempDir, "prefix", null);
-        assertTrue(PathUtils.isRegularFile(testFile1));
+        assertFalse(PathUtils.isRegularFile(tempDirPath));
+        try (TempFile testFile1 = TempFile.create(tempDirPath, "prefix", null)) {
+            assertTrue(PathUtils.isRegularFile(testFile1.get()));
 
-        Files.delete(testFile1);
-        assertFalse(PathUtils.isRegularFile(testFile1));
+            Files.delete(testFile1.get());
+            assertFalse(PathUtils.isRegularFile(testFile1.get()));
+        }
     }
 
     @Test
     public void testNewDirectoryStream() throws Exception {
         final PathFilter pathFilter = new NameFileFilter(PATH_FIXTURE);
-        try (final DirectoryStream<Path> stream = PathUtils.newDirectoryStream(PathUtils.current(), pathFilter)) {
+        try (DirectoryStream<Path> stream = PathUtils.newDirectoryStream(current(), pathFilter)) {
             final Iterator<Path> iterator = stream.iterator();
             final Path path = iterator.next();
             assertEquals(PATH_FIXTURE, path.getFileName().toString());
@@ -253,16 +366,33 @@ public class PathUtilsTest extends TestArguments {
     }
 
     @Test
+    public void testNewOutputStreamNewFileInsideExistingSymlinkedDir() throws IOException {
+        final Path symlinkDir = createTempSymlinkedRelativeDir();
+        final Path file = symlinkDir.resolve("test.txt");
+        try (OutputStream outputStream = PathUtils.newOutputStream(file, new LinkOption[] {})) {
+            // empty
+        }
+        try (OutputStream outputStream = PathUtils.newOutputStream(file, null)) {
+            // empty
+        }
+        try (OutputStream outputStream = PathUtils.newOutputStream(file, true)) {
+            // empty
+        }
+        try (OutputStream outputStream = PathUtils.newOutputStream(file, false)) {
+            // empty
+        }
+    }
+
+    @Test
     public void testReadAttributesPosix() throws IOException {
         boolean isPosix;
         try {
-            Files.getPosixFilePermissions(PathUtils.current());
+            Files.getPosixFilePermissions(current());
             isPosix = true;
-        } catch (UnsupportedOperationException e) {
+        } catch (final UnsupportedOperationException e) {
             isPosix = false;
         }
-        assertEquals(isPosix, PathUtils.readAttributes(PathUtils.current(), PosixFileAttributes.class) != null);
-        assertNull(PathUtils.readAttributes(Paths.get("does not.exist"), PosixFileAttributes.class));
+        assertEquals(isPosix, PathUtils.readAttributes(current(), PosixFileAttributes.class) != null);
     }
 
     @Test
@@ -282,7 +412,9 @@ public class PathUtilsTest extends TestArguments {
 
     @Test
     public void testSetReadOnlyFile() throws IOException {
-        final Path resolved = tempDir.resolve("testSetReadOnlyFile.txt");
+        final Path resolved = tempDirPath.resolve("testSetReadOnlyFile.txt");
+        // Ask now, as we are allowed before editing parent permissions.
+        final boolean isPosix = PathUtils.isPosix(tempDirPath);
 
         // TEMP HACK
         assumeFalse(SystemUtils.IS_OS_LINUX);
@@ -300,8 +432,13 @@ public class PathUtilsTest extends TestArguments {
         assertTrue(writable);
         // Test A
         PathUtils.setReadOnly(resolved, false);
-        assertTrue(Files.isReadable(resolved));
-        assertTrue(Files.isWritable(resolved));
+        assertTrue(Files.isReadable(resolved), "isReadable");
+        assertTrue(Files.isWritable(resolved), "isWritable");
+        // Again, shouldn't blow up.
+        PathUtils.setReadOnly(resolved, false);
+        assertTrue(Files.isReadable(resolved), "isReadable");
+        assertTrue(Files.isWritable(resolved), "isWritable");
+        //
         assertEquals(regularFile, Files.isReadable(resolved));
         assertEquals(executable, Files.isExecutable(resolved));
         assertEquals(hidden, Files.isHidden(resolved));
@@ -309,21 +446,22 @@ public class PathUtilsTest extends TestArguments {
         assertEquals(symbolicLink, Files.isSymbolicLink(resolved));
         // Test B
         PathUtils.setReadOnly(resolved, true);
-        assertTrue(Files.isReadable(resolved));
-        assertFalse(Files.isWritable(resolved));
+        if (isPosix) {
+            // On POSIX, now that the parent is not WX, the file is not readable.
+            assertFalse(Files.isReadable(resolved), "isReadable");
+        } else {
+            assertTrue(Files.isReadable(resolved), "isReadable");
+        }
+        assertFalse(Files.isWritable(resolved), "isWritable");
         final DosFileAttributeView dosFileAttributeView = PathUtils.getDosFileAttributeView(resolved);
         if (dosFileAttributeView != null) {
             assertTrue(dosFileAttributeView.readAttributes().isReadOnly());
         }
-        final PosixFileAttributeView posixFileAttributeView = PathUtils.getPosixFileAttributeView(resolved);
-        if (posixFileAttributeView != null) {
-            // Not Windows
-            final Set<PosixFilePermission> permissions = posixFileAttributeView.readAttributes().permissions();
-            assertFalse(permissions.contains(PosixFilePermission.GROUP_WRITE), permissions::toString);
-            assertFalse(permissions.contains(PosixFilePermission.OTHERS_WRITE), permissions::toString);
-            assertFalse(permissions.contains(PosixFilePermission.OWNER_WRITE), permissions::toString);
+        if (isPosix) {
+            assertFalse(Files.isReadable(resolved));
+        } else {
+            assertEquals(regularFile, Files.isReadable(resolved));
         }
-        assertEquals(regularFile, Files.isReadable(resolved));
         assertEquals(executable, Files.isExecutable(resolved));
         assertEquals(hidden, Files.isHidden(resolved));
         assertEquals(directory, Files.isDirectory(resolved));
@@ -334,8 +472,34 @@ public class PathUtilsTest extends TestArguments {
     }
 
     @Test
+    public void testTouch() throws IOException {
+        assertThrows(NullPointerException.class, () -> FileUtils.touch(null));
+
+        final Path file = managedTempDirPath.resolve("touch.txt");
+        Files.deleteIfExists(file);
+        assertFalse(Files.exists(file), "Bad test: test file still exists");
+        PathUtils.touch(file);
+        assertTrue(Files.exists(file), "touch() created file");
+        try (OutputStream out = Files.newOutputStream(file)) {
+            assertEquals(0, Files.size(file), "Created empty file.");
+            out.write(0);
+        }
+        assertEquals(1, Files.size(file), "Wrote one byte to file");
+        final long y2k = new GregorianCalendar(2000, 0, 1).getTime().getTime();
+        setLastModifiedMillis(file, y2k); // 0L fails on Win98
+        assertEquals(y2k, getLastModifiedMillis(file), "Bad test: set lastModified set incorrect value");
+        final long nowMillis = System.currentTimeMillis();
+        PathUtils.touch(file);
+        assertEquals(1, Files.size(file), "FileUtils.touch() didn't empty the file.");
+        assertNotEquals(y2k, getLastModifiedMillis(file), "FileUtils.touch() changed lastModified");
+        final int delta = 3000;
+        assertTrue(getLastModifiedMillis(file) >= nowMillis - delta, "FileUtils.touch() changed lastModified to more than now-3s");
+        assertTrue(getLastModifiedMillis(file) <= nowMillis + delta, "FileUtils.touch() changed lastModified to less than now+3s");
+    }
+
+    @Test
     public void testWriteStringToFile1() throws Exception {
-        final Path file = tempDir.resolve("write.txt");
+        final Path file = tempDirPath.resolve("write.txt");
         PathUtils.writeString(file, "Hello /u1234", StandardCharsets.UTF_8);
         final byte[] text = "Hello /u1234".getBytes(StandardCharsets.UTF_8);
         TestUtils.assertEqualContent(text, file);
@@ -345,7 +509,7 @@ public class PathUtilsTest extends TestArguments {
      * Tests newOutputStream() here and don't use Files.write obviously.
      */
     private Path writeToNewOutputStream(final boolean append) throws IOException {
-        final Path file = tempDir.resolve("test1.txt");
+        final Path file = tempDirPath.resolve("test1.txt");
         try (OutputStream os = PathUtils.newOutputStream(file, append)) {
             os.write(BYTE_ARRAY_FIXTURE);
         }

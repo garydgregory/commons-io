@@ -29,7 +29,7 @@ import java.util.Objects;
  * </p>
  *
  * @since 2.7
- * @see java.lang.Appendable
+ * @see Appendable
  *
  * @param <T> The type of the {@link Appendable} wrapped by this AppendableWriter.
  */
@@ -127,7 +127,7 @@ public class AppendableWriter <T extends Appendable> extends Writer {
     @Override
     public void write(final char[] cbuf, final int off, final int len) throws IOException {
         Objects.requireNonNull(cbuf, "Character array is missing");
-        if (len < 0 || (off + len) > cbuf.length) {
+        if (len < 0 || off + len > cbuf.length) {
             throw new IndexOutOfBoundsException("Array Size=" + cbuf.length +
                     ", offset=" + off + ", length=" + len);
         }

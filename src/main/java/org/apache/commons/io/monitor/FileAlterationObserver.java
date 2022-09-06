@@ -22,7 +22,9 @@ import java.io.Serializable;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.stream.Stream;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOCase;
@@ -83,7 +85,7 @@ import org.apache.commons.io.comparator.NameFileComparator;
  * noise from <i>unwanted</i> file system events.
  * <p>
  * <a href="https://commons.apache.org/io/">Commons IO</a> has a good range of
- * useful, ready made
+ * useful, ready-made
  * <a href="../filefilter/package-summary.html">File Filter</a>
  * implementations for this purpose.
  * <p>
@@ -166,12 +168,8 @@ public class FileAlterationObserver implements Serializable {
      * @param ioCase what case sensitivity to use comparing file names, null means system sensitive
      */
     protected FileAlterationObserver(final FileEntry rootEntry, final FileFilter fileFilter, final IOCase ioCase) {
-        if (rootEntry == null) {
-            throw new IllegalArgumentException("Root entry is missing");
-        }
-        if (rootEntry.getFile() == null) {
-            throw new IllegalArgumentException("Root directory is missing");
-        }
+        Objects.requireNonNull(rootEntry, "rootEntry");
+        Objects.requireNonNull(rootEntry.getFile(), "rootEntry.getFile()");
         this.rootEntry = rootEntry;
         this.fileFilter = fileFilter;
         switch (IOCase.value(ioCase, IOCase.SYSTEM)) {
@@ -232,25 +230,20 @@ public class FileAlterationObserver implements Serializable {
      */
     public void checkAndNotify() {
 
-        /* fire onStart() */
-        for (final FileAlterationListener listener : listeners) {
-            listener.onStart(this);
-        }
+        // fire onStart()
+        listeners.forEach(listener -> listener.onStart(this));
 
-        /* fire directory/file events */
+        // fire directory/file events
         final File rootFile = rootEntry.getFile();
         if (rootFile.exists()) {
             checkAndNotify(rootEntry, rootEntry.getChildren(), listFiles(rootFile));
         } else if (rootEntry.isExists()) {
             checkAndNotify(rootEntry, rootEntry.getChildren(), FileUtils.EMPTY_FILE_ARRAY);
-        } else {
-            // Didn't exist and still doesn't
         }
+        // Else: Didn't exist and still doesn't
 
-        /* fire onStop() */
-        for (final FileAlterationListener listener : listeners) {
-            listener.onStop(this);
-        }
+        // fire onStop()
+        listeners.forEach(listener -> listener.onStop(this));
     }
 
     /**
@@ -316,17 +309,14 @@ public class FileAlterationObserver implements Serializable {
      * @param entry The file entry
      */
     private void doCreate(final FileEntry entry) {
-        for (final FileAlterationListener listener : listeners) {
+        listeners.forEach(listener -> {
             if (entry.isDirectory()) {
                 listener.onDirectoryCreate(entry.getFile());
             } else {
                 listener.onFileCreate(entry.getFile());
             }
-        }
-        final FileEntry[] children = entry.getChildren();
-        for (final FileEntry aChildren : children) {
-            doCreate(aChildren);
-        }
+        });
+        Stream.of(entry.getChildren()).forEach(this::doCreate);
     }
 
     /**
@@ -335,13 +325,13 @@ public class FileAlterationObserver implements Serializable {
      * @param entry The file entry
      */
     private void doDelete(final FileEntry entry) {
-        for (final FileAlterationListener listener : listeners) {
+        listeners.forEach(listener -> {
             if (entry.isDirectory()) {
                 listener.onDirectoryDelete(entry.getFile());
             } else {
                 listener.onFileDelete(entry.getFile());
             }
-        }
+        });
     }
 
     /**
@@ -367,13 +357,13 @@ public class FileAlterationObserver implements Serializable {
      */
     private void doMatch(final FileEntry entry, final File file) {
         if (entry.refresh(file)) {
-            for (final FileAlterationListener listener : listeners) {
+            listeners.forEach(listener -> {
                 if (entry.isDirectory()) {
                     listener.onDirectoryChange(file);
                 } else {
                     listener.onFileChange(file);
                 }
-            }
+            });
         }
     }
 
@@ -444,9 +434,7 @@ public class FileAlterationObserver implements Serializable {
      */
     public void removeListener(final FileAlterationListener listener) {
         if (listener != null) {
-            while (listeners.remove(listener)) {
-                // empty
-            }
+            listeners.removeIf(listener::equals);
         }
     }
 

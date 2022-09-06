@@ -31,7 +31,7 @@ import org.apache.commons.io.input.ObservableInputStream.Observer;
  *
  * <pre>
  * final TimestampedObserver timetampedObserver = new TimestampedObserver();
- * try (final ObservableInputStream inputStream = new ObservableInputStream(...),
+ * try (ObservableInputStream inputStream = new ObservableInputStream(...),
  *     timetampedObserver)) {
  *     ...
  * }
@@ -84,6 +84,16 @@ public class TimestampedObserver extends Observer {
      */
     public Duration getOpenToNowDuration() {
         return Duration.between(openInstant, Instant.now());
+    }
+
+    /**
+     * Tests whether {@link #closed()} has been called.
+     *
+     * @return whether {@link #closed()} has been called.
+     * @since 2.12.0
+     */
+    public boolean isClosed() {
+        return closeInstant != null;
     }
 
     @Override

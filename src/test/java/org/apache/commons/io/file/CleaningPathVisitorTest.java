@@ -18,7 +18,9 @@
 package org.apache.commons.io.file;
 
 import static org.apache.commons.io.file.CounterAssertions.assertCounts;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -26,9 +28,8 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 
 import org.apache.commons.io.file.Counters.PathCounters;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
@@ -37,26 +38,12 @@ import org.junit.jupiter.params.provider.MethodSource;
  */
 public class CleaningPathVisitorTest extends TestArguments {
 
+    @TempDir
     private Path tempDir;
-
-    @AfterEach
-    public void afterEach() throws IOException {
-        // temp dir should still exist since we are cleaning and not deleting.
-        assertTrue(Files.exists(tempDir));
-        // backstop
-        if (Files.exists(tempDir) && PathUtils.isEmptyDirectory(tempDir)) {
-            Files.deleteIfExists(tempDir);
-        }
-    }
 
     private void applyCleanEmptyDirectory(final CleaningPathVisitor visitor) throws IOException {
         Files.walkFileTree(tempDir, visitor);
         assertCounts(1, 0, 0, visitor);
-    }
-
-    @BeforeEach
-    public void beforeEach() throws IOException {
-        tempDir = Files.createTempDirectory(getClass().getCanonicalName());
     }
 
     /**
@@ -84,7 +71,14 @@ public class CleaningPathVisitorTest extends TestArguments {
     @MethodSource("cleaningPathVisitors")
     public void testCleanFolders1FileSize0(final CleaningPathVisitor visitor) throws IOException {
         PathUtils.copyDirectory(Paths.get("src/test/resources/org/apache/commons/io/dirs-1-file-size-0"), tempDir);
-        assertCounts(1, 1, 0, PathUtils.visitFileTree(visitor, tempDir));
+        final CleaningPathVisitor visitFileTree = PathUtils.visitFileTree(visitor, tempDir);
+        assertCounts(1, 1, 0, visitFileTree);
+        assertSame(visitor, visitFileTree);
+        //
+        assertNotEquals(visitFileTree, CleaningPathVisitor.withLongCounters());
+        assertNotEquals(visitFileTree.hashCode(), CleaningPathVisitor.withLongCounters().hashCode());
+        assertEquals(visitFileTree, visitFileTree);
+        assertEquals(visitFileTree.hashCode(), visitFileTree.hashCode());
     }
 
     /**
@@ -94,7 +88,14 @@ public class CleaningPathVisitorTest extends TestArguments {
     @MethodSource("cleaningPathVisitors")
     public void testCleanFolders1FileSize1(final CleaningPathVisitor visitor) throws IOException {
         PathUtils.copyDirectory(Paths.get("src/test/resources/org/apache/commons/io/dirs-1-file-size-1"), tempDir);
-        assertCounts(1, 1, 1, PathUtils.visitFileTree(visitor, tempDir));
+        final CleaningPathVisitor visitFileTree = PathUtils.visitFileTree(visitor, tempDir);
+        assertCounts(1, 1, 1, visitFileTree);
+        assertSame(visitor, visitFileTree);
+        //
+        assertNotEquals(visitFileTree, CleaningPathVisitor.withLongCounters());
+        assertNotEquals(visitFileTree.hashCode(), CleaningPathVisitor.withLongCounters().hashCode());
+        assertEquals(visitFileTree, visitFileTree);
+        assertEquals(visitFileTree.hashCode(), visitFileTree.hashCode());
     }
 
     /**
@@ -106,10 +107,17 @@ public class CleaningPathVisitorTest extends TestArguments {
         PathUtils.copyDirectory(Paths.get("src/test/resources/org/apache/commons/io/dirs-1-file-size-1"), tempDir);
         final String skipFileName = "file-size-1.bin";
         final CountingPathVisitor visitor = new CleaningPathVisitor(pathCounters, skipFileName);
-        assertCounts(1, 1, 1, PathUtils.visitFileTree(visitor, tempDir));
+        final CountingPathVisitor visitFileTree = PathUtils.visitFileTree(visitor, tempDir);
+        assertCounts(1, 1, 1, visitFileTree);
+        assertSame(visitor, visitFileTree);
         final Path skippedFile = tempDir.resolve(skipFileName);
         Assertions.assertTrue(Files.exists(skippedFile));
         Files.delete(skippedFile);
+        //
+        assertNotEquals(visitFileTree, CleaningPathVisitor.withLongCounters());
+        assertNotEquals(visitFileTree.hashCode(), CleaningPathVisitor.withLongCounters().hashCode());
+        assertEquals(visitFileTree, visitFileTree);
+        assertEquals(visitFileTree.hashCode(), visitFileTree.hashCode());
     }
 
     /**
@@ -119,6 +127,13 @@ public class CleaningPathVisitorTest extends TestArguments {
     @MethodSource("cleaningPathVisitors")
     public void testCleanFolders2FileSize2(final CleaningPathVisitor visitor) throws IOException {
         PathUtils.copyDirectory(Paths.get("src/test/resources/org/apache/commons/io/dirs-2-file-size-2"), tempDir);
-        assertCounts(3, 2, 2, PathUtils.visitFileTree(visitor, tempDir));
+        final CleaningPathVisitor visitFileTree = PathUtils.visitFileTree(visitor, tempDir);
+        assertCounts(3, 2, 2, visitFileTree);
+        assertSame(visitor, visitFileTree);
+        //
+        assertNotEquals(visitFileTree, CleaningPathVisitor.withLongCounters());
+        assertNotEquals(visitFileTree.hashCode(), CleaningPathVisitor.withLongCounters().hashCode());
+        assertEquals(visitFileTree, visitFileTree);
+        assertEquals(visitFileTree.hashCode(), visitFileTree.hashCode());
     }
 }

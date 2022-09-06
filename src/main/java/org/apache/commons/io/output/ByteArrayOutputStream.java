@@ -16,6 +16,7 @@
  */
 package org.apache.commons.io.output;
 
+import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -27,7 +28,7 @@ import java.io.OutputStream;
 public class ByteArrayOutputStream extends AbstractByteArrayOutputStream {
 
     /**
-     * Fetches entire contents of an {@code InputStream} and represent
+     * Fetches entire contents of an {@link InputStream} and represent
      * same data as result InputStream.
      * <p>
      * This method is useful where,
@@ -41,7 +42,7 @@ public class ByteArrayOutputStream extends AbstractByteArrayOutputStream {
      * It can be used in favor of {@link #toByteArray()}, since it
      * avoids unnecessary allocation and copy of byte[].<br>
      * This method buffers the input internally, so there is no need to use a
-     * {@code BufferedInputStream}.
+     * {@link BufferedInputStream}.
      *
      * @param input Stream to be fully buffered.
      * @return A fully buffered stream.
@@ -54,7 +55,7 @@ public class ByteArrayOutputStream extends AbstractByteArrayOutputStream {
     }
 
     /**
-     * Fetches entire contents of an {@code InputStream} and represent
+     * Fetches entire contents of an {@link InputStream} and represent
      * same data as result InputStream.
      * <p>
      * This method is useful where,
@@ -68,7 +69,7 @@ public class ByteArrayOutputStream extends AbstractByteArrayOutputStream {
      * It can be used in favor of {@link #toByteArray()}, since it
      * avoids unnecessary allocation and copy of byte[].<br>
      * This method buffers the input internally, so there is no need to use a
-     * {@code BufferedInputStream}.
+     * {@link BufferedInputStream}.
      *
      * @param input Stream to be fully buffered.
      * @param size the initial buffer size
@@ -78,7 +79,7 @@ public class ByteArrayOutputStream extends AbstractByteArrayOutputStream {
      */
     public static InputStream toBufferedInputStream(final InputStream input, final int size)
         throws IOException {
-        try (final ByteArrayOutputStream output = new ByteArrayOutputStream(size)) {
+        try (ByteArrayOutputStream output = new ByteArrayOutputStream(size)) {
             output.write(input);
             return output.toInputStream();
         }
@@ -101,8 +102,7 @@ public class ByteArrayOutputStream extends AbstractByteArrayOutputStream {
      */
     public ByteArrayOutputStream(final int size) {
         if (size < 0) {
-            throw new IllegalArgumentException(
-                "Negative initial size: " + size);
+            throw new IllegalArgumentException("Negative initial size: " + size);
         }
         synchronized (this) {
             needNewBuffer(size);
@@ -134,11 +134,11 @@ public class ByteArrayOutputStream extends AbstractByteArrayOutputStream {
 
     @Override
     public void write(final byte[] b, final int off, final int len) {
-        if ((off < 0)
-                || (off > b.length)
-                || (len < 0)
-                || ((off + len) > b.length)
-                || ((off + len) < 0)) {
+        if (off < 0
+                || off > b.length
+                || len < 0
+                || off + len > b.length
+                || off + len < 0) {
             throw new IndexOutOfBoundsException();
         }
         if (len == 0) {

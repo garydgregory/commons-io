@@ -42,6 +42,9 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 public class ReaderInputStreamTest {
+
+    private static final String UTF_16 = StandardCharsets.UTF_16.name();
+    private static final String UTF_8 = StandardCharsets.UTF_8.name();
     private static final String TEST_STRING = "\u00e0 peine arriv\u00e9s nous entr\u00e2mes dans sa chambre";
     private static final String LARGE_TEST_STRING;
 
@@ -53,7 +56,32 @@ public class ReaderInputStreamTest {
         LARGE_TEST_STRING = buffer.toString();
     }
 
+    static Stream<Arguments> charsetData() {
+        // @formatter:off
+        return Stream.of(
+                Arguments.of("Cp930", "\u0391"),
+                Arguments.of("ISO_8859_1", "A"),
+                Arguments.of(UTF_8, "\u0391"));
+        // @formatter:on
+    }
+
     private final Random random = new Random();
+
+    @Test
+    @Timeout(value = 500, unit = TimeUnit.MILLISECONDS)
+    public void testBufferSmallest() throws IOException {
+        final Charset charset = StandardCharsets.UTF_8;
+        try (InputStream in = new ReaderInputStream(new StringReader("\uD800"), charset, (int) ReaderInputStream.minBufferSize(charset.newEncoder()))) {
+            in.read();
+        }
+    }
+
+    @Test
+    public void testBufferTooSmall() {
+        assertThrows(IllegalArgumentException.class, () -> new ReaderInputStream(new StringReader("\uD800"), StandardCharsets.UTF_8, -1));
+        assertThrows(IllegalArgumentException.class, () -> new ReaderInputStream(new StringReader("\uD800"), StandardCharsets.UTF_8, 0));
+        assertThrows(IllegalArgumentException.class, () -> new ReaderInputStream(new StringReader("\uD800"), StandardCharsets.UTF_8, 1));
+    }
 
     @ParameterizedTest
     @MethodSource("charsetData")
@@ -63,31 +91,6 @@ public class ReaderInputStreamTest {
         try (InputStream in = new ReaderInputStream(new StringReader(data), charset)) {
             final byte[] actual = IOUtils.toByteArray(in);
             assertEquals(Arrays.toString(expected), Arrays.toString(actual));
-        }
-    }
-
-    static Stream<Arguments> charsetData() {
-        // @formatter:off
-        return Stream.of(
-                Arguments.of("Cp930", "\u0391"),
-                Arguments.of("ISO_8859_1", "A"),
-                Arguments.of("UTF-8", "\u0391"));
-        // @formatter:on
-    }
-
-    @Test
-    public void testBufferTooSmall() throws IOException {
-        assertThrows(IllegalArgumentException.class, () -> new ReaderInputStream(new StringReader("\uD800"), StandardCharsets.UTF_8, -1));
-        assertThrows(IllegalArgumentException.class, () -> new ReaderInputStream(new StringReader("\uD800"), StandardCharsets.UTF_8, 0));
-        assertThrows(IllegalArgumentException.class, () -> new ReaderInputStream(new StringReader("\uD800"), StandardCharsets.UTF_8, 1));
-    }
-
-    @Test
-    @Timeout(value = 500, unit = TimeUnit.MILLISECONDS)
-    public void testBufferSmallest() throws IOException {
-        final Charset charset = StandardCharsets.UTF_8;
-        try (InputStream in = new ReaderInputStream(new StringReader("\uD800"), charset, (int) ReaderInputStream.minBufferSize(charset.newEncoder()))) {
-            in.read();
         }
     }
 
@@ -121,20 +124,53 @@ public class ReaderInputStreamTest {
     }
 
     @Test
+    @Timeout(value = 500, unit = TimeUnit.MILLISECONDS)
+    public void testConstructNullCharset() throws IOException {
+        final Charset charset = Charset.defaultCharset();
+        final Charset encoder = null;
+        try (ReaderInputStream in = new ReaderInputStream(new StringReader("ABC"), encoder, (int) ReaderInputStream.minBufferSize(charset.newEncoder()))) {
+            IOUtils.toByteArray(in);
+            assertEquals(Charset.defaultCharset(), in.getCharsetEncoder().charset());
+        }
+    }
+
+    @Test
+    @Timeout(value = 500, unit = TimeUnit.MILLISECONDS)
+    public void testConstructNullCharsetEncoder() throws IOException {
+        final Charset charset = Charset.defaultCharset();
+        final CharsetEncoder encoder = null;
+        try (ReaderInputStream in = new ReaderInputStream(new StringReader("ABC"), encoder, (int) ReaderInputStream.minBufferSize(charset.newEncoder()))) {
+            IOUtils.toByteArray(in);
+            assertEquals(Charset.defaultCharset(), in.getCharsetEncoder().charset());
+        }
+    }
+
+    @Test
+    @Timeout(value = 500, unit = TimeUnit.MILLISECONDS)
+    public void testConstructNullCharsetNameEncoder() throws IOException {
+        final Charset charset = Charset.defaultCharset();
+        final String encoder = null;
+        try (ReaderInputStream in = new ReaderInputStream(new StringReader("ABC"), encoder, (int) ReaderInputStream.minBufferSize(charset.newEncoder()))) {
+            IOUtils.toByteArray(in);
+            assertEquals(Charset.defaultCharset(), in.getCharsetEncoder().charset());
+        }
+    }
+
+    @Test
     public void testLargeUTF8WithBufferedRead() throws IOException {
-        testWithBufferedRead(LARGE_TEST_STRING, "UTF-8");
+        testWithBufferedRead(LARGE_TEST_STRING, UTF_8);
     }
 
     @Test
     public void testLargeUTF8WithSingleByteRead() throws IOException {
-        testWithSingleByteRead(LARGE_TEST_STRING, "UTF-8");
+        testWithSingleByteRead(LARGE_TEST_STRING, UTF_8);
     }
 
     @SuppressWarnings("deprecation")
     @Test
     public void testReadZero() throws Exception {
         final String inStr = "test";
-        try (final ReaderInputStream inputStream = new ReaderInputStream(new StringReader(inStr))) {
+        try (ReaderInputStream inputStream = new ReaderInputStream(new StringReader(inStr))) {
             final byte[] bytes = new byte[30];
             assertEquals(0, inputStream.read(bytes, 0, 0));
             assertEquals(inStr.length(), inputStream.read(bytes, 0, inStr.length() + 1));
@@ -146,7 +182,7 @@ public class ReaderInputStreamTest {
     @SuppressWarnings("deprecation")
     @Test
     public void testReadZeroEmptyString() throws Exception {
-        try (final ReaderInputStream inputStream = new ReaderInputStream(new StringReader(""))) {
+        try (ReaderInputStream inputStream = new ReaderInputStream(new StringReader(""))) {
             final byte[] bytes = new byte[30];
             // Should always return 0 for length == 0
             assertEquals(0, inputStream.read(bytes, 0, 0));
@@ -158,22 +194,22 @@ public class ReaderInputStreamTest {
 
     @Test
     public void testUTF16WithSingleByteRead() throws IOException {
-        testWithSingleByteRead(TEST_STRING, "UTF-16");
+        testWithSingleByteRead(TEST_STRING, UTF_16);
     }
 
     @Test
     public void testUTF8WithBufferedRead() throws IOException {
-        testWithBufferedRead(TEST_STRING, "UTF-8");
+        testWithBufferedRead(TEST_STRING, UTF_8);
     }
 
     @Test
     public void testUTF8WithSingleByteRead() throws IOException {
-        testWithSingleByteRead(TEST_STRING, "UTF-8");
+        testWithSingleByteRead(TEST_STRING, UTF_8);
     }
 
     private void testWithBufferedRead(final String testString, final String charsetName) throws IOException {
         final byte[] expected = testString.getBytes(charsetName);
-        try (final ReaderInputStream in = new ReaderInputStream(new StringReader(testString), charsetName)) {
+        try (ReaderInputStream in = new ReaderInputStream(new StringReader(testString), charsetName)) {
             final byte[] buffer = new byte[128];
             int offset = 0;
             while (true) {
@@ -198,7 +234,7 @@ public class ReaderInputStreamTest {
 
     private void testWithSingleByteRead(final String testString, final String charsetName) throws IOException {
         final byte[] bytes = testString.getBytes(charsetName);
-        try (final ReaderInputStream in = new ReaderInputStream(new StringReader(testString), charsetName)) {
+        try (ReaderInputStream in = new ReaderInputStream(new StringReader(testString), charsetName)) {
             for (final byte b : bytes) {
                 final int read = in.read();
                 assertTrue(read >= 0);

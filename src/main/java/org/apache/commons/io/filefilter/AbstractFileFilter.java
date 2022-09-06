@@ -23,10 +23,12 @@ import java.io.IOException;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.util.List;
 import java.util.Objects;
 
 import org.apache.commons.io.file.PathFilter;
 import org.apache.commons.io.file.PathVisitor;
+import org.apache.commons.io.function.IOSupplier;
 
 /**
  * Abstracts the implementation of the {@link FileFilter} (IO), {@link FilenameFilter} (IO), {@link PathFilter} (NIO)
@@ -38,13 +40,6 @@ import org.apache.commons.io.file.PathVisitor;
  * @since 1.0
  */
 public abstract class AbstractFileFilter implements IOFileFilter, PathVisitor {
-
-    static <T> T requireNonNull(final T obj, final String message) {
-        if (obj == null) {
-            throw new IllegalArgumentException(message);
-        }
-        return obj;
-    }
 
     static FileVisitResult toDefaultFileVisitResult(final boolean accept) {
         return accept ? FileVisitResult.CONTINUE : FileVisitResult.TERMINATE;
@@ -102,6 +97,32 @@ public abstract class AbstractFileFilter implements IOFileFilter, PathVisitor {
     public boolean accept(final File dir, final String name) {
         Objects.requireNonNull(name, "name");
         return accept(new File(dir, name));
+    }
+
+    void append(final List<?> list, final StringBuilder buffer) {
+        for (int i = 0; i < list.size(); i++) {
+            if (i > 0) {
+                buffer.append(",");
+            }
+            buffer.append(list.get(i));
+        }
+    }
+
+    void append(final Object[] array, final StringBuilder buffer) {
+        for (int i = 0; i < array.length; i++) {
+            if (i > 0) {
+                buffer.append(",");
+            }
+            buffer.append(array[i]);
+        }
+    }
+
+    FileVisitResult get(final IOSupplier<FileVisitResult> supplier) {
+        try {
+            return supplier.get();
+        } catch (IOException e) {
+            return handle(e);
+        }
     }
 
     /**

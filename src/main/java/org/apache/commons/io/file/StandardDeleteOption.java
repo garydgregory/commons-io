@@ -17,6 +17,8 @@
 
 package org.apache.commons.io.file;
 
+import java.util.stream.Stream;
+
 import org.apache.commons.io.IOUtils;
 
 /**
@@ -27,7 +29,7 @@ import org.apache.commons.io.IOUtils;
 public enum StandardDeleteOption implements DeleteOption {
 
     /**
-     * Overrides the read-only attribute to allow deletion.
+     * Overrides the read-only attribute to allow deletion, on POSIX, this means Write and Execute on the parent.
      */
     OVERRIDE_READ_ONLY;
 
@@ -43,12 +45,7 @@ public enum StandardDeleteOption implements DeleteOption {
         if (IOUtils.length(options) == 0) {
             return false;
         }
-        for (final DeleteOption deleteOption : options) {
-            if (deleteOption == StandardDeleteOption.OVERRIDE_READ_ONLY) {
-                return true;
-            }
-        }
-        return false;
+        return Stream.of(options).anyMatch(e -> StandardDeleteOption.OVERRIDE_READ_ONLY == e);
     }
 
 }

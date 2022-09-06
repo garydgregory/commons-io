@@ -18,6 +18,7 @@ package org.apache.commons.io.output;
 
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
@@ -30,7 +31,7 @@ import org.apache.commons.io.FileUtils;
  * FileWriter that will create and honor lock files to allow simple
  * cross thread file lock handling.
  * <p>
- * This class provides a simple alternative to {@code FileWriter}
+ * This class provides a simple alternative to {@link FileWriter}
  * that will use a lock file to prevent duplicate writes.
  * </p>
  * <p>
@@ -122,31 +123,30 @@ public class LockableFileWriter extends Writer {
      * @throws IOException in case of an I/O error
      * @since 2.3
      */
-    public LockableFileWriter(File file, final Charset charset, final boolean append,
-            String lockDir) throws IOException {
+    public LockableFileWriter(final File file, final Charset charset, final boolean append, String lockDir) throws IOException {
         // init file to create/append
-        file = file.getAbsoluteFile();
-        if (file.getParentFile() != null) {
-            FileUtils.forceMkdir(file.getParentFile());
+        final File absFile = file.getAbsoluteFile();
+        if (absFile.getParentFile() != null) {
+            FileUtils.forceMkdir(absFile.getParentFile());
         }
-        if (file.isDirectory()) {
+        if (absFile.isDirectory()) {
             throw new IOException("File specified is a directory");
         }
 
         // init lock file
         if (lockDir == null) {
-            lockDir = System.getProperty("java.io.tmpdir");
+            lockDir = FileUtils.getTempDirectoryPath();
         }
         final File lockDirFile = new File(lockDir);
         FileUtils.forceMkdir(lockDirFile);
         testLockDir(lockDirFile);
-        lockFile = new File(lockDirFile, file.getName() + LCK);
+        lockFile = new File(lockDirFile, absFile.getName() + LCK);
 
         // check if locked
         createLock();
 
         // init wrapped writer
-        out = initWriter(file, charset, append);
+        out = initWriter(absFile, charset, append);
     }
 
     /**

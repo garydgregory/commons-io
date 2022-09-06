@@ -23,11 +23,12 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.nio.charset.Charset;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.StringTokenizer;
+import java.util.stream.Collectors;
 
 /**
  * General File System utilities.
@@ -187,7 +188,7 @@ public class FileSystemUtils {
      * The free space is calculated via the command line.
      * It uses 'dir /-c' on Windows, 'df -kP' on AIX/HP-UX and 'df -k' on other Unix.
      * <p>
-     * In order to work, you must be running Windows, or have a implementation of
+     * In order to work, you must be running Windows, or have an implementation of
      * Unix df that supports GNU format when passed -k (or -kP). If you are going
      * to rely on this code, please check that it works on your OS by running
      * some simple tests to compare the command line with the output from this class.
@@ -217,7 +218,7 @@ public class FileSystemUtils {
      * The free space is calculated via the command line.
      * It uses 'dir /-c' on Windows, 'df -kP' on AIX/HP-UX and 'df -k' on other Unix.
      * <p>
-     * In order to work, you must be running Windows, or have a implementation of
+     * In order to work, you must be running Windows, or have an implementation of
      * Unix df that supports GNU format when passed -k (or -kP). If you are going
      * to rely on this code, please check that it works on your OS by running
      * some simple tests to compare the command line with the output from this class.
@@ -262,25 +263,22 @@ public class FileSystemUtils {
      *  is zero or less
      * @return the amount of free drive space on the drive or volume
      * @throws IllegalArgumentException if the path is invalid
-     * @throws IllegalStateException if an error occurred in initialisation
+     * @throws IllegalStateException if an error occurred in initialization
      * @throws IOException if an error occurs when finding the free space
      */
     long freeSpaceOS(final String path, final int os, final boolean kb, final Duration timeout) throws IOException {
-        if (path == null) {
-            throw new IllegalArgumentException("Path must not be null");
-        }
+        Objects.requireNonNull(path, "path");
         switch (os) {
-            case WINDOWS:
-                return kb ? freeSpaceWindows(path, timeout) / FileUtils.ONE_KB : freeSpaceWindows(path, timeout);
-            case UNIX:
-                return freeSpaceUnix(path, kb, false, timeout);
-            case POSIX_UNIX:
-                return freeSpaceUnix(path, kb, true, timeout);
-            case OTHER:
-                throw new IllegalStateException("Unsupported operating system");
-            default:
-                throw new IllegalStateException(
-                  "Exception caught when determining operating system");
+        case WINDOWS:
+            return kb ? freeSpaceWindows(path, timeout) / FileUtils.ONE_KB : freeSpaceWindows(path, timeout);
+        case UNIX:
+            return freeSpaceUnix(path, kb, false, timeout);
+        case POSIX_UNIX:
+            return freeSpaceUnix(path, kb, true, timeout);
+        case OTHER:
+            throw new IllegalStateException("Unsupported operating system");
+        default:
+            throw new IllegalStateException("Exception caught when determining operating system");
         }
     }
 
@@ -326,7 +324,7 @@ public class FileSystemUtils {
         StringTokenizer tok = new StringTokenizer(line2, " ");
         if (tok.countTokens() < 4) {
             // could be long Filesystem, thus data on third line
-            if ((tok.countTokens() != 1) || (lines.size() < 3)) {
+            if (tok.countTokens() != 1 || lines.size() < 3) {
                 throw new IOException(
                         "Command line '" + DF + "' did not return data as expected " +
                         "for path '" + path + "'- check path is valid");
@@ -486,10 +484,10 @@ public class FileSystemUtils {
         // http://bugs.sun.com/bugdatabase/view_bug.do?bug_id=4784692
         // http://bugs.sun.com/bugdatabase/view_bug.do?bug_id=4801027
         // http://forum.java.sun.com/thread.jspa?threadID=533029&messageID=2572018
-        // however, its still not perfect as the JDK support is so poor
-        // (see commons-exec or Ant for a better multi-threaded multi-os solution)
+        // however, it's still not perfect as the JDK support is so poor
+        // (see commons-exec or Ant for a better multithreaded multi-os solution)
 
-        final List<String> lines = new ArrayList<>(20);
+        final List<String> lines;
         Process proc = null;
         InputStream in = null;
         OutputStream out = null;
@@ -505,12 +503,8 @@ public class FileSystemUtils {
             err = proc.getErrorStream();
             // default charset is most likely appropriate here
             inr = new BufferedReader(new InputStreamReader(in, Charset.defaultCharset()));
-            String line = inr.readLine();
-            while (line != null && lines.size() < max) {
-                line = line.toLowerCase(Locale.ENGLISH).trim();
-                lines.add(line);
-                line = inr.readLine();
-            }
+
+            lines = inr.lines().limit(max).map(line -> line.toLowerCase(Locale.ENGLISH).trim()).collect(Collectors.toList());
 
             proc.waitFor();
 
@@ -518,15 +512,11 @@ public class FileSystemUtils {
 
             if (proc.exitValue() != 0) {
                 // OS command problem, throw exception
-                throw new IOException(
-                        "Command line returned OS error code '" + proc.exitValue() +
-                        "' for command " + Arrays.asList(cmdAttribs));
+                throw new IOException("Command line returned OS error code '" + proc.exitValue() + "' for command " + Arrays.asList(cmdAttribs));
             }
             if (lines.isEmpty()) {
                 // unknown problem, throw exception
-                throw new IOException(
-                        "Command line did not return any info " +
-                        "for command " + Arrays.asList(cmdAttribs));
+                throw new IOException("Command line did not return any info " + "for command " + Arrays.asList(cmdAttribs));
             }
 
             inr.close();

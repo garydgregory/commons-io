@@ -26,6 +26,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.charset.UnsupportedCharsetException;
 
+import org.apache.commons.io.FileUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -48,7 +49,7 @@ public class LockableFileWriterTest {
     @BeforeEach
     public void setUp() {
         file = new File(temporaryFolder, "testlockfile");
-        lockDir = new File(System.getProperty("java.io.tmpdir"));
+        lockDir = FileUtils.getTempDirectory();
         lockFile = new File(lockDir, file.getName() + ".lck");
         altLockDir = temporaryFolder;
         altLockFile = new File(altLockDir, file.getName() + ".lck");
@@ -57,7 +58,7 @@ public class LockableFileWriterTest {
     @Test
     public void testAlternateLockDir() throws IOException {
         // open a valid lockable writer
-        try (LockableFileWriter lfw1 = new LockableFileWriter(file, "UTF-8", true, altLockDir.getAbsolutePath())) {
+        try (LockableFileWriter lfw1 = new LockableFileWriter(file, StandardCharsets.UTF_8, true, altLockDir.getAbsolutePath())) {
             assertTrue(file.exists());
             assertTrue(altLockFile.exists());
 
@@ -86,7 +87,7 @@ public class LockableFileWriterTest {
     }
 
     @Test
-    public void testConstructor_File_encoding_badEncoding() throws IOException {
+    public void testConstructor_File_encoding_badEncoding() {
         assertThrows(UnsupportedCharsetException.class, () -> new LockableFileWriter(file, "BAD-ENCODE"));
         assertFalse(file.exists());
         assertFalse(lockFile.exists());
@@ -96,7 +97,7 @@ public class LockableFileWriterTest {
     }
 
     @Test
-    public void testConstructor_File_nullFile() throws IOException {
+    public void testConstructor_File_nullFile() {
         assertThrows(NullPointerException.class, () -> new LockableFileWriter((File) null));
         assertFalse(file.exists());
         assertFalse(lockFile.exists());
@@ -106,7 +107,7 @@ public class LockableFileWriterTest {
     }
 
     @Test
-    public void testConstructor_fileName_nullFile() throws IOException {
+    public void testConstructor_fileName_nullFile() {
         assertThrows(NullPointerException.class, () -> new LockableFileWriter((String) null));
         assertFalse(file.exists());
         assertFalse(lockFile.exists());

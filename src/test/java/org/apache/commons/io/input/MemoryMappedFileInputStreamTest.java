@@ -16,13 +16,12 @@
  */
 package org.apache.commons.io.input;
 
+import static org.apache.commons.lang3.ArrayUtils.EMPTY_BYTE_ARRAY;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
@@ -50,14 +49,17 @@ public class MemoryMappedFileInputStreamTest {
         // otherwise the temporary files won't be able to be removed when running on
         // Windows. Calling gc() is just a hint to the VM.
         System.gc();
+        Thread.yield();
+        System.runFinalization();
+        Thread.yield();
+        System.gc();
+        Thread.yield();
+        System.runFinalization();
+        Thread.yield();
     }
 
     private Path createTestFile(final int size) throws IOException {
-        final Path file = Files.createTempFile(tempDir, null, null);
-        try (OutputStream outputStream = new BufferedOutputStream(Files.newOutputStream(file))) {
-            Files.write(file, RandomUtils.nextBytes(size));
-        }
-        return file;
+        return Files.write(Files.createTempFile(tempDir, null, null), RandomUtils.nextBytes(size));
     }
 
     @Test
@@ -80,7 +82,7 @@ public class MemoryMappedFileInputStreamTest {
         // test
         try (InputStream inputStream = new MemoryMappedFileInputStream(file)) {
             // verify
-            assertArrayEquals(new byte[0], IOUtils.toByteArray(inputStream));
+            assertArrayEquals(EMPTY_BYTE_ARRAY, IOUtils.toByteArray(inputStream));
         }
     }
 
@@ -148,7 +150,7 @@ public class MemoryMappedFileInputStreamTest {
         try (InputStream inputStream = new MemoryMappedFileInputStream(file)) {
             assertEquals(0, inputStream.skip(5));
             // verify
-            assertArrayEquals(new byte[0], IOUtils.toByteArray(inputStream));
+            assertArrayEquals(EMPTY_BYTE_ARRAY, IOUtils.toByteArray(inputStream));
         }
     }
 
@@ -208,7 +210,7 @@ public class MemoryMappedFileInputStreamTest {
             IOUtils.toByteArray(inputStream, 5);
             assertEquals(95, inputStream.skip(96));
             // verify
-            assertArrayEquals(new byte[0], IOUtils.toByteArray(inputStream));
+            assertArrayEquals(EMPTY_BYTE_ARRAY, IOUtils.toByteArray(inputStream));
         }
     }
 

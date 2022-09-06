@@ -38,9 +38,9 @@ import org.apache.commons.io.input.ClosedInputStream;
  * <p>
  * The data can be retrieved using {@code toByteArray()} and
  * {@code toString()}.
- * Closing an {@code AbstractByteArrayOutputStream} has no effect. The methods in
+ * Closing an {@link AbstractByteArrayOutputStream} has no effect. The methods in
  * this class can be called after the stream has been closed without
- * generating an {@code IOException}.
+ * generating an {@link IOException}.
  * </p>
  * <p>
  * This is the base for an alternative implementation of the
@@ -80,14 +80,19 @@ public abstract class AbstractByteArrayOutputStream extends OutputStream {
     }
 
     static final int DEFAULT_SIZE = 1024;
+
     /** The list of buffers, which grows and never reduces. */
     private final List<byte[]> buffers = new ArrayList<>();
+
     /** The index of the current buffer. */
     private int currentBufferIndex;
+
     /** The total count of bytes in all the filled buffers. */
     private int filledBufferSum;
+
     /** The current buffer. */
     private byte[] currentBuffer;
+
     /** The total count of bytes written. */
     protected int count;
 
@@ -95,12 +100,12 @@ public abstract class AbstractByteArrayOutputStream extends OutputStream {
     private boolean reuseBuffers = true;
 
     /**
-     * Closing a {@code ByteArrayOutputStream} has no effect. The methods in
-     * this class can be called after the stream has been closed without
-     * generating an {@code IOException}.
+     * Does nothing.
      *
-     * @throws IOException never (this method should not declare this exception
-     * but it has to now due to backwards compatibility)
+     * The methods in this class can be called after the stream has been closed without generating an {@link IOException}.
+     *
+     * @throws IOException never (this method should not declare this exception but it has to now due to backwards
+     *         compatibility)
      */
     @Override
     public void close() throws IOException {
@@ -111,9 +116,9 @@ public abstract class AbstractByteArrayOutputStream extends OutputStream {
      * Makes a new buffer available either by allocating
      * a new one or re-cycling an existing one.
      *
-     * @param newcount  the size of the buffer if one is created
+     * @param newCount  the size of the buffer if one is created
      */
-    protected void needNewBuffer(final int newcount) {
+    protected void needNewBuffer(final int newCount) {
         if (currentBufferIndex < buffers.size() - 1) {
             // Recycling old buffer
             filledBufferSum += currentBuffer.length;
@@ -124,10 +129,10 @@ public abstract class AbstractByteArrayOutputStream extends OutputStream {
             // Creating new buffer
             final int newBufferSize;
             if (currentBuffer == null) {
-                newBufferSize = newcount;
+                newBufferSize = newCount;
                 filledBufferSum = 0;
             } else {
-                newBufferSize = Math.max(currentBuffer.length << 1, newcount - filledBufferSum);
+                newBufferSize = Math.max(currentBuffer.length << 1, newCount - filledBufferSum);
                 filledBufferSum += currentBuffer.length;
             }
 
@@ -161,7 +166,6 @@ public abstract class AbstractByteArrayOutputStream extends OutputStream {
         }
     }
 
-
     /**
      * Returns the current size of the byte array.
      *
@@ -190,22 +194,22 @@ public abstract class AbstractByteArrayOutputStream extends OutputStream {
         if (remaining == 0) {
             return IOUtils.EMPTY_BYTE_ARRAY;
         }
-        final byte[] newbuf = IOUtils.byteArray(remaining);
+        final byte[] newBuf = IOUtils.byteArray(remaining);
         int pos = 0;
         for (final byte[] buf : buffers) {
             final int c = Math.min(buf.length, remaining);
-            System.arraycopy(buf, 0, newbuf, pos, c);
+            System.arraycopy(buf, 0, newBuf, pos, c);
             pos += c;
             remaining -= c;
             if (remaining == 0) {
                 break;
             }
         }
-        return newbuf;
+        return newBuf;
     }
 
     /**
-     * Gets the current contents of this byte stream as a Input Stream. The
+     * Gets the current contents of this byte stream as an Input Stream. The
      * returned stream is backed by buffers of {@code this} stream,
      * avoiding memory allocation and copy, thus saving space and time.<br>
      *
@@ -217,7 +221,7 @@ public abstract class AbstractByteArrayOutputStream extends OutputStream {
     public abstract InputStream toInputStream();
 
     /**
-     * Gets the current contents of this byte stream as a Input Stream. The
+     * Gets the current contents of this byte stream as an Input Stream. The
      * returned stream is backed by buffers of {@code this} stream,
      * avoiding memory allocation and copy, thus saving space and time.<br>
      *
@@ -291,19 +295,13 @@ public abstract class AbstractByteArrayOutputStream extends OutputStream {
         return new String(toByteArray(), enc);
     }
 
-    /**
-     * Writes the bytes to the byte array.
-     * @param b the bytes to write
-     * @param off The start offset
-     * @param len The number of bytes to write
-     */
     @Override
     public abstract void write(final byte[] b, final int off, final int len);
 
     /**
      * Writes the entire contents of the specified input stream to this
      * byte stream. Bytes from the input stream are read directly into the
-     * internal buffers of this streams.
+     * internal buffer of this stream.
      *
      * @param in the input stream to read from
      * @return total number of bytes read from the input stream
@@ -313,10 +311,6 @@ public abstract class AbstractByteArrayOutputStream extends OutputStream {
      */
     public abstract int write(final InputStream in) throws IOException;
 
-    /**
-     * Write a byte to byte array.
-     * @param b the byte to write
-     */
     @Override
     public abstract void write(final int b);
 
@@ -327,7 +321,7 @@ public abstract class AbstractByteArrayOutputStream extends OutputStream {
      * @param len The number of bytes to write
      */
     protected void writeImpl(final byte[] b, final int off, final int len) {
-        final int newcount = count + len;
+        final int newCount = count + len;
         int remaining = len;
         int inBufferPos = count - filledBufferSum;
         while (remaining > 0) {
@@ -335,17 +329,17 @@ public abstract class AbstractByteArrayOutputStream extends OutputStream {
             System.arraycopy(b, off + len - remaining, currentBuffer, inBufferPos, part);
             remaining -= part;
             if (remaining > 0) {
-                needNewBuffer(newcount);
+                needNewBuffer(newCount);
                 inBufferPos = 0;
             }
         }
-        count = newcount;
+        count = newCount;
     }
 
     /**
      * Writes the entire contents of the specified input stream to this
      * byte stream. Bytes from the input stream are read directly into the
-     * internal buffers of this streams.
+     * internal buffer of this stream.
      *
      * @param in the input stream to read from
      * @return total number of bytes read from the input stream

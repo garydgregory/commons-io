@@ -16,6 +16,7 @@
  */
 package org.apache.commons.io;
 
+import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileFilter;
@@ -36,6 +37,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.charset.UnsupportedCharsetException;
 import java.nio.file.CopyOption;
 import java.nio.file.FileVisitOption;
+import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.NotDirectoryException;
@@ -45,6 +47,8 @@ import java.nio.file.attribute.FileTime;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalTime;
+import java.time.OffsetDateTime;
+import java.time.OffsetTime;
 import java.time.ZoneId;
 import java.time.chrono.ChronoLocalDate;
 import java.time.chrono.ChronoLocalDateTime;
@@ -70,12 +74,13 @@ import org.apache.commons.io.file.Counters;
 import org.apache.commons.io.file.PathFilter;
 import org.apache.commons.io.file.PathUtils;
 import org.apache.commons.io.file.StandardDeleteOption;
-import org.apache.commons.io.file.attribute.FileTimes;
 import org.apache.commons.io.filefilter.FileEqualsFileFilter;
 import org.apache.commons.io.filefilter.FileFileFilter;
 import org.apache.commons.io.filefilter.IOFileFilter;
 import org.apache.commons.io.filefilter.SuffixFileFilter;
 import org.apache.commons.io.filefilter.TrueFileFilter;
+import org.apache.commons.io.function.IOConsumer;
+import org.apache.commons.io.function.Uncheck;
 
 /**
  * General file manipulation utilities.
@@ -106,6 +111,7 @@ import org.apache.commons.io.filefilter.TrueFileFilter;
  * </p>
  */
 public class FileUtils {
+
     /**
      * The number of bytes in a kilobyte.
      */
@@ -189,7 +195,7 @@ public class FileUtils {
     public static final BigInteger ONE_YB = ONE_KB_BI.multiply(ONE_ZB);
 
     /**
-     * An empty array of type {@code File}.
+     * An empty array of type {@link File}.
      */
     public static final File[] EMPTY_FILE_ARRAY = {};
 
@@ -222,7 +228,7 @@ public class FileUtils {
      *
      * @param size the number of bytes
      * @return a human-readable display value (includes units - EB, PB, TB, GB, MB, KB or bytes)
-     * @throws NullPointerException if the given {@code BigInteger} is {@code null}.
+     * @throws NullPointerException if the given {@link BigInteger} is {@code null}.
      * @see <a href="https://issues.apache.org/jira/browse/IO-226">IO-226 - should the rounding be changed?</a>
      * @since 2.4
      */
@@ -290,7 +296,7 @@ public class FileUtils {
 
     /**
      * Computes the checksum of a file using the specified checksum object. Multiple files may be checked using one
-     * {@code Checksum} instance if desired simply by reusing the same checksum object. For example:
+     * {@link Checksum} instance if desired simply by reusing the same checksum object. For example:
      *
      * <pre>
      * long checksum = FileUtils.checksum(file, new CRC32()).getValue();
@@ -299,9 +305,9 @@ public class FileUtils {
      * @param file the file to checksum, must not be {@code null}
      * @param checksum the checksum object to be used, must not be {@code null}
      * @return the checksum specified, updated with the content of the file
-     * @throws NullPointerException if the given {@code File} is {@code null}.
-     * @throws NullPointerException if the given {@code Checksum} is {@code null}.
-     * @throws IllegalArgumentException if the given {@code File} does not exist or is not a file.
+     * @throws NullPointerException if the given {@link File} is {@code null}.
+     * @throws NullPointerException if the given {@link Checksum} is {@code null}.
+     * @throws IllegalArgumentException if the given {@link File} does not exist or is not a file.
      * @throws IOException if an IO error occurs reading the file.
      * @since 1.3
      */
@@ -321,8 +327,8 @@ public class FileUtils {
      *
      * @param file the file to checksum, must not be {@code null}
      * @return the checksum value
-     * @throws NullPointerException if the given {@code File} is {@code null}.
-     * @throws IllegalArgumentException if the given {@code File} does not exist or is not a file.
+     * @throws NullPointerException if the given {@link File} is {@code null}.
+     * @throws IllegalArgumentException if the given {@link File} does not exist or is not a file.
      * @throws IOException              if an IO error occurs reading the file.
      * @since 1.3
      */
@@ -334,52 +340,26 @@ public class FileUtils {
      * Cleans a directory without deleting it.
      *
      * @param directory directory to clean
-     * @throws NullPointerException if the given {@code File} is {@code null}.
+     * @throws NullPointerException if the given {@link File} is {@code null}.
      * @throws IllegalArgumentException if directory does not exist or is not a directory.
      * @throws IOException if an I/O error occurs.
      * @see #forceDelete(File)
      */
     public static void cleanDirectory(final File directory) throws IOException {
-        final File[] files = listFiles(directory, null);
-
-        final List<Exception> causeList = new ArrayList<>();
-        for (final File file : files) {
-            try {
-                forceDelete(file);
-            } catch (final IOException ioe) {
-                causeList.add(ioe);
-            }
-        }
-
-        if (!causeList.isEmpty()) {
-            throw new IOExceptionList(directory.toString(), causeList);
-        }
+        IOConsumer.forAll(FileUtils::forceDelete, listFiles(directory, null));
     }
 
     /**
      * Cleans a directory without deleting it.
      *
      * @param directory directory to clean, must not be {@code null}
-     * @throws NullPointerException if the given {@code File} is {@code null}.
+     * @throws NullPointerException if the given {@link File} is {@code null}.
      * @throws IllegalArgumentException if directory does not exist or is not a directory.
      * @throws IOException if an I/O error occurs.
      * @see #forceDeleteOnExit(File)
      */
     private static void cleanDirectoryOnExit(final File directory) throws IOException {
-        final File[] files = listFiles(directory, null);
-
-        final List<Exception> causeList = new ArrayList<>();
-        for (final File file : files) {
-            try {
-                forceDeleteOnExit(file);
-            } catch (final IOException ioe) {
-                causeList.add(ioe);
-            }
-        }
-
-        if (!causeList.isEmpty()) {
-            throw new IOExceptionList(causeList);
-        }
+        IOConsumer.forAll(FileUtils::forceDeleteOnExit, listFiles(directory, null));
     }
 
     /**
@@ -516,10 +496,10 @@ public class FileUtils {
      *
      * @param srcDir an existing directory to copy, must not be {@code null}.
      * @param destDir the new directory, must not be {@code null}.
-     * @throws NullPointerException if any of the given {@code File}s are {@code null}.
+     * @throws NullPointerException if any of the given {@link File}s are {@code null}.
      * @throws IllegalArgumentException if the source or destination is invalid.
      * @throws FileNotFoundException if the source does not exist.
-     * @throws IOException if an error occurs or setting the last-modified time didn't succeeded.
+     * @throws IOException if an error occurs or setting the last-modified time didn't succeed.
      * @since 1.1
      */
     public static void copyDirectory(final File srcDir, final File destDir) throws IOException {
@@ -544,10 +524,10 @@ public class FileUtils {
      * @param srcDir an existing directory to copy, must not be {@code null}.
      * @param destDir the new directory, must not be {@code null}.
      * @param preserveFileDate true if the file date of the copy should be the same as the original.
-     * @throws NullPointerException if any of the given {@code File}s are {@code null}.
+     * @throws NullPointerException if any of the given {@link File}s are {@code null}.
      * @throws IllegalArgumentException if the source or destination is invalid.
      * @throws FileNotFoundException if the source does not exist.
-     * @throws IOException if an error occurs or setting the last-modified time didn't succeeded.
+     * @throws IOException if an error occurs or setting the last-modified time didn't succeed.
      * @since 1.1
      */
     public static void copyDirectory(final File srcDir, final File destDir, final boolean preserveFileDate)
@@ -593,10 +573,10 @@ public class FileUtils {
      * @param srcDir an existing directory to copy, must not be {@code null}.
      * @param destDir the new directory, must not be {@code null}.
      * @param filter the filter to apply, null means copy all directories and files should be the same as the original.
-     * @throws NullPointerException if any of the given {@code File}s are {@code null}.
+     * @throws NullPointerException if any of the given {@link File}s are {@code null}.
      * @throws IllegalArgumentException if the source or destination is invalid.
      * @throws FileNotFoundException if the source does not exist.
-     * @throws IOException if an error occurs or setting the last-modified time didn't succeeded.
+     * @throws IOException if an error occurs or setting the last-modified time didn't succeed.
      * @since 1.4
      */
     public static void copyDirectory(final File srcDir, final File destDir, final FileFilter filter)
@@ -643,10 +623,10 @@ public class FileUtils {
      * @param destDir the new directory, must not be {@code null}.
      * @param filter the filter to apply, null means copy all directories and files.
      * @param preserveFileDate true if the file date of the copy should be the same as the original.
-     * @throws NullPointerException if any of the given {@code File}s are {@code null}.
+     * @throws NullPointerException if any of the given {@link File}s are {@code null}.
      * @throws IllegalArgumentException if the source or destination is invalid.
      * @throws FileNotFoundException if the source does not exist.
-     * @throws IOException if an error occurs or setting the last-modified time didn't succeeded.
+     * @throws IOException if an error occurs or setting the last-modified time didn't succeed.
      * @since 1.4
      */
     public static void copyDirectory(final File srcDir, final File destDir, final FileFilter filter, final boolean preserveFileDate) throws IOException {
@@ -693,10 +673,10 @@ public class FileUtils {
      * @param fileFilter the filter to apply, null means copy all directories and files
      * @param preserveFileDate true if the file date of the copy should be the same as the original
      * @param copyOptions options specifying how the copy should be done, for example {@link StandardCopyOption}.
-     * @throws NullPointerException if any of the given {@code File}s are {@code null}.
+     * @throws NullPointerException if any of the given {@link File}s are {@code null}.
      * @throws IllegalArgumentException if the source or destination is invalid.
      * @throws FileNotFoundException if the source does not exist.
-     * @throws IOException if an error occurs or setting the last-modified time didn't succeeded.
+     * @throws IOException if an error occurs or setting the last-modified time didn't succeed.
      * @since 2.8.0
      */
     public static void copyDirectory(final File srcDir, final File destDir, final FileFilter fileFilter, final boolean preserveFileDate,
@@ -714,8 +694,7 @@ public class FileUtils {
             if (srcFiles.length > 0) {
                 exclusionList = new ArrayList<>(srcFiles.length);
                 for (final File srcFile : srcFiles) {
-                    final File copiedFile = new File(destDir, srcFile.getName());
-                    exclusionList.add(copiedFile.getCanonicalPath());
+                    exclusionList.add(new File(destDir, srcFile.getName()).getCanonicalPath());
                 }
             }
         }
@@ -740,10 +719,10 @@ public class FileUtils {
      *
      * @param sourceDir an existing directory to copy, must not be {@code null}.
      * @param destinationDir the directory to place the copy in, must not be {@code null}.
-     * @throws NullPointerException if any of the given {@code File}s are {@code null}.
+     * @throws NullPointerException if any of the given {@link File}s are {@code null}.
      * @throws IllegalArgumentException if the source or destination is invalid.
      * @throws FileNotFoundException if the source does not exist.
-     * @throws IOException if an error occurs or setting the last-modified time didn't succeeded.
+     * @throws IOException if an error occurs or setting the last-modified time didn't succeed.
      * @since 1.2
      */
     public static void copyDirectoryToDirectory(final File sourceDir, final File destinationDir) throws IOException {
@@ -761,15 +740,15 @@ public class FileUtils {
      * </p>
      * <p>
      * <strong>Note:</strong> This method tries to preserve the file's last modified date/times using
-     * {@link File#setLastModified(long)}, however it is not guaranteed that the operation will succeed. If the
+     * {@link StandardCopyOption#COPY_ATTRIBUTES}, however it is not guaranteed that the operation will succeed. If the
      * modification operation fails, the methods throws IOException.
      * </p>
      *
      * @param srcFile an existing file to copy, must not be {@code null}.
      * @param destFile the new file, must not be {@code null}.
-     * @throws NullPointerException if any of the given {@code File}s are {@code null}.
+     * @throws NullPointerException if any of the given {@link File}s are {@code null}.
      * @throws IOException if source or destination is invalid.
-     * @throws IOException if an error occurs or setting the last-modified time didn't succeeded.
+     * @throws IOException if an error occurs or setting the last-modified time didn't succeed.
      * @throws IOException if the output file length is not the same as the input file length after the copy completes.
      * @see #copyFileToDirectory(File, File)
      * @see #copyFile(File, File, boolean)
@@ -787,16 +766,16 @@ public class FileUtils {
      * </p>
      * <p>
      * <strong>Note:</strong> Setting {@code preserveFileDate} to {@code true} tries to preserve the file's last
-     * modified date/times using {@link File#setLastModified(long)}, however it is not guaranteed that the operation
+     * modified date/times using {@link StandardCopyOption#COPY_ATTRIBUTES}, however it is not guaranteed that the operation
      * will succeed. If the modification operation fails, the methods throws IOException.
      * </p>
      *
      * @param srcFile an existing file to copy, must not be {@code null}.
      * @param destFile the new file, must not be {@code null}.
      * @param preserveFileDate true if the file date of the copy should be the same as the original.
-     * @throws NullPointerException if any of the given {@code File}s are {@code null}.
+     * @throws NullPointerException if any of the given {@link File}s are {@code null}.
      * @throws IOException if source or destination is invalid.
-     * @throws IOException if an error occurs or setting the last-modified time didn't succeeded.
+     * @throws IOException if an error occurs or setting the last-modified time didn't succeed.
      * @throws IOException if the output file length is not the same as the input file length after the copy completes
      * @see #copyFile(File, File, boolean, CopyOption...)
      */
@@ -817,7 +796,7 @@ public class FileUtils {
      * </p>
      * <p>
      * <strong>Note:</strong> Setting {@code preserveFileDate} to {@code true} tries to preserve the file's last
-     * modified date/times using {@link File#setLastModified(long)}, however it is not guaranteed that the operation
+     * modified date/times using {@link StandardCopyOption#COPY_ATTRIBUTES}, however it is not guaranteed that the operation
      * will succeed. If the modification operation fails, the methods throws IOException.
      * </p>
      *
@@ -825,11 +804,11 @@ public class FileUtils {
      * @param destFile the new file, must not be {@code null}.
      * @param preserveFileDate true if the file date of the copy should be the same as the original.
      * @param copyOptions options specifying how the copy should be done, for example {@link StandardCopyOption}..
-     * @throws NullPointerException if any of the given {@code File}s are {@code null}.
+     * @throws NullPointerException if any of the given {@link File}s are {@code null}.
      * @throws FileNotFoundException if the source does not exist.
      * @throws IllegalArgumentException if source is not a file.
      * @throws IOException if the output file length is not the same as the input file length after the copy completes.
-     * @throws IOException if an I/O error occurs, or setting the last-modified time didn't succeeded.
+     * @throws IOException if an I/O error occurs, or setting the last-modified time didn't succeed.
      * @see #copyFileToDirectory(File, File, boolean)
      * @since 2.8.0
      */
@@ -848,10 +827,9 @@ public class FileUtils {
      * @param srcFile an existing file to copy, must not be {@code null}.
      * @param destFile the new file, must not be {@code null}.
      * @param copyOptions options specifying how the copy should be done, for example {@link StandardCopyOption}..
-     * @throws NullPointerException if any of the given {@code File}s are {@code null}.
+     * @throws NullPointerException if any of the given {@link File}s are {@code null}.
      * @throws FileNotFoundException if the source does not exist.
      * @throws IllegalArgumentException if source is not a file.
-     * @throws IOException if the output file length is not the same as the input file length after the copy completes.
      * @throws IOException if an I/O error occurs.
      * @see StandardCopyOption
      * @since 2.9.0
@@ -865,22 +843,18 @@ public class FileUtils {
         if (destFile.exists()) {
             requireCanWrite(destFile, "destFile");
         }
-
         // On Windows, the last modified time is copied by default.
         Files.copy(srcFile.toPath(), destFile.toPath(), copyOptions);
-
-        // TODO IO-386: Do we still need this check?
-        requireEqualSizes(srcFile, destFile, srcFile.length(), destFile.length());
     }
 
     /**
-     * Copies bytes from a {@code File} to an {@code OutputStream}.
+     * Copies bytes from a {@link File} to an {@link OutputStream}.
      * <p>
-     * This method buffers the input internally, so there is no need to use a {@code BufferedInputStream}.
+     * This method buffers the input internally, so there is no need to use a {@link BufferedInputStream}.
      * </p>
      *
-     * @param input  the {@code File} to read.
-     * @param output the {@code OutputStream} to write.
+     * @param input  the {@link File} to read.
+     * @param output the {@link OutputStream} to write.
      * @return the number of bytes copied
      * @throws NullPointerException if the File is {@code null}.
      * @throws NullPointerException if the OutputStream is {@code null}.
@@ -902,15 +876,15 @@ public class FileUtils {
      * </p>
      * <p>
      * <strong>Note:</strong> This method tries to preserve the file's last modified date/times using
-     * {@link File#setLastModified(long)}, however it is not guaranteed that the operation will succeed. If the
+     * {@link StandardCopyOption#COPY_ATTRIBUTES}, however it is not guaranteed that the operation will succeed. If the
      * modification operation fails, the methods throws IOException.
      * </p>
      *
      * @param srcFile an existing file to copy, must not be {@code null}.
      * @param destDir the directory to place the copy in, must not be {@code null}.
-     * @throws NullPointerException if any of the given {@code File}s are {@code null}.
+     * @throws NullPointerException if any of the given {@link File}s are {@code null}.
      * @throws IllegalArgumentException if source or destination is invalid.
-     * @throws IOException if an error occurs or setting the last-modified time didn't succeeded.
+     * @throws IOException if an error occurs or setting the last-modified time didn't succeed.
      * @see #copyFile(File, File, boolean)
      */
     public static void copyFileToDirectory(final File srcFile, final File destDir) throws IOException {
@@ -926,15 +900,15 @@ public class FileUtils {
      * </p>
      * <p>
      * <strong>Note:</strong> Setting {@code preserveFileDate} to {@code true} tries to preserve the file's last
-     * modified date/times using {@link File#setLastModified(long)}, however it is not guaranteed that the operation
+     * modified date/times using {@link StandardCopyOption#COPY_ATTRIBUTES}, however it is not guaranteed that the operation
      * will succeed. If the modification operation fails, the methods throws IOException.
      * </p>
      *
      * @param sourceFile an existing file to copy, must not be {@code null}.
      * @param destinationDir the directory to place the copy in, must not be {@code null}.
      * @param preserveFileDate true if the file date of the copy should be the same as the original.
-     * @throws NullPointerException if any of the given {@code File}s are {@code null}.
-     * @throws IOException if an error occurs or setting the last-modified time didn't succeeded.
+     * @throws NullPointerException if any of the given {@link File}s are {@code null}.
+     * @throws IOException if an error occurs or setting the last-modified time didn't succeed.
      * @throws IOException if the output file length is not the same as the input file length after the copy completes.
      * @see #copyFile(File, File, CopyOption...)
      * @since 1.3
@@ -957,8 +931,8 @@ public class FileUtils {
      * See {@link #copyToFile(InputStream, File)} for a method that does not close the input stream.
      * </p>
      *
-     * @param source      the {@code InputStream} to copy bytes from, must not be {@code null}, will be closed
-     * @param destination the non-directory {@code File} to write bytes to
+     * @param source      the {@link InputStream} to copy bytes from, must not be {@code null}, will be closed
+     * @param destination the non-directory {@link File} to write bytes to
      *                    (possibly overwriting), must not be {@code null}
      * @throws IOException if {@code destination} is a directory
      * @throws IOException if {@code destination} cannot be written
@@ -979,21 +953,22 @@ public class FileUtils {
      * specified destination directory.
      * </p>
      * <p>
-     * The destination directory is created if it does not exist. If the destination directory did exist, then this
-     * method merges the source with the destination, with the source taking precedence.
+     * The destination directory is created if it does not exist. If the destination directory did exist, then this method
+     * merges the source with the destination, with the source taking precedence.
      * </p>
      * <p>
      * <strong>Note:</strong> This method tries to preserve the files' last modified date/times using
-     * {@link File#setLastModified(long)}, however it is not guaranteed that those operations will succeed. If the
-     * modification operation fails, the methods throws IOException.
+     * {@link StandardCopyOption#COPY_ATTRIBUTES} or {@link File#setLastModified(long)} depending on the input, however it
+     * is not guaranteed that those operations will succeed. If the modification operation fails, the methods throws
+     * IOException.
      * </p>
      *
      * @param sourceFile an existing file or directory to copy, must not be {@code null}.
      * @param destinationDir the directory to place the copy in, must not be {@code null}.
-     * @throws NullPointerException if any of the given {@code File}s are {@code null}.
+     * @throws NullPointerException if any of the given {@link File}s are {@code null}.
      * @throws IllegalArgumentException if the source or destination is invalid.
      * @throws FileNotFoundException if the source does not exist.
-     * @throws IOException if an error occurs or setting the last-modified time didn't succeeded.
+     * @throws IOException if an error occurs or setting the last-modified time didn't succeed.
      * @see #copyDirectoryToDirectory(File, File)
      * @see #copyFileToDirectory(File, File)
      * @since 2.6
@@ -1024,11 +999,11 @@ public class FileUtils {
      * If the modification operation fails, the methods throws IOException.
      * </p>
      *
-     * @param sourceIterable     a existing files to copy, must not be {@code null}.
-     * @param destinationDir  the directory to place the copy in, must not be {@code null}.
-     * @throws NullPointerException if any of the given {@code File}s are {@code null}.
+     * @param sourceIterable  existing files to copy, must not be {@code null}.
+     * @param destinationDir  the directory to place the copies in, must not be {@code null}.
+     * @throws NullPointerException if any of the given {@link File}s are {@code null}.
      * @throws IOException if source or destination is invalid.
-     * @throws IOException if an error occurs or setting the last-modified time didn't succeeded.
+     * @throws IOException if an error occurs or setting the last-modified time didn't succeed.
      * @see #copyFileToDirectory(File, File)
      * @since 2.6
      */
@@ -1046,8 +1021,8 @@ public class FileUtils {
      * {@link java.util.zip.ZipInputStream ZipInputStream}. See {@link #copyInputStreamToFile(InputStream, File)} for a
      * method that closes the input stream.
      *
-     * @param inputStream the {@code InputStream} to copy bytes from, must not be {@code null}
-     * @param file the non-directory {@code File} to write bytes to (possibly overwriting), must not be
+     * @param inputStream the {@link InputStream} to copy bytes from, must not be {@code null}
+     * @param file the non-directory {@link File} to write bytes to (possibly overwriting), must not be
      *        {@code null}
      * @throws NullPointerException if the InputStream is {@code null}.
      * @throws NullPointerException if the File is {@code null}.
@@ -1074,8 +1049,8 @@ public class FileUtils {
      * with reasonable timeouts to prevent this.
      * </p>
      *
-     * @param source      the {@code URL} to copy bytes from, must not be {@code null}
-     * @param destination the non-directory {@code File} to write bytes to
+     * @param source      the {@link URL} to copy bytes from, must not be {@code null}
+     * @param destination the non-directory {@link File} to write bytes to
      *                    (possibly overwriting), must not be {@code null}
      * @throws IOException if {@code source} URL cannot be opened
      * @throws IOException if {@code destination} is a directory
@@ -1084,8 +1059,10 @@ public class FileUtils {
      * @throws IOException if an IO error occurs during copying
      */
     public static void copyURLToFile(final URL source, final File destination) throws IOException {
-        try (final InputStream stream = source.openStream()) {
-            Files.copy(stream, destination.toPath());
+        try (InputStream stream = source.openStream()) {
+            final Path path = destination.toPath();
+            PathUtils.createParentDirectories(path);
+            Files.copy(stream, path, StandardCopyOption.REPLACE_EXISTING);
         }
     }
 
@@ -1094,12 +1071,12 @@ public class FileUtils {
      * {@code destination} will be created if they don't already exist. {@code destination} will be
      * overwritten if it already exists.
      *
-     * @param source the {@code URL} to copy bytes from, must not be {@code null}
-     * @param destination the non-directory {@code File} to write bytes to (possibly overwriting), must not be
+     * @param source the {@link URL} to copy bytes from, must not be {@code null}
+     * @param destination the non-directory {@link File} to write bytes to (possibly overwriting), must not be
      *        {@code null}
-     * @param connectionTimeoutMillis the number of milliseconds until this method will timeout if no connection could
+     * @param connectionTimeoutMillis the number of milliseconds until this method will time out if no connection could
      *        be established to the {@code source}
-     * @param readTimeoutMillis the number of milliseconds until this method will timeout if no data could be read from
+     * @param readTimeoutMillis the number of milliseconds until this method will time out if no data could be read from
      *        the {@code source}
      * @throws IOException if {@code source} URL cannot be opened
      * @throws IOException if {@code destination} is a directory
@@ -1110,10 +1087,10 @@ public class FileUtils {
      */
     public static void copyURLToFile(final URL source, final File destination, final int connectionTimeoutMillis, final int readTimeoutMillis)
         throws IOException {
-        try (final CloseableURLConnection urlConnection = CloseableURLConnection.open(source)) {
+        try (CloseableURLConnection urlConnection = CloseableURLConnection.open(source)) {
             urlConnection.setConnectTimeout(connectionTimeoutMillis);
             urlConnection.setReadTimeout(readTimeoutMillis);
-            try (final InputStream stream = urlConnection.getInputStream()) {
+            try (InputStream stream = urlConnection.getInputStream()) {
                 copyInputStreamToFile(stream, destination);
             }
         }
@@ -1171,7 +1148,7 @@ public class FileUtils {
                             i += 3;
                         } while (i < n && url.charAt(i) == '%');
                         continue;
-                    } catch (final RuntimeException e) {
+                    } catch (final RuntimeException ignored) {
                         // malformed percent-encoded octet, fall through and
                         // append characters literally
                     } finally {
@@ -1195,7 +1172,8 @@ public class FileUtils {
      *
      * @param file The file to delete.
      * @return the given file.
-     * @throws IOException if the file cannot be deleted.
+     * @throws NullPointerException     if the parameter is {@code null}
+     * @throws IOException              if the file cannot be deleted.
      * @see File#delete()
      * @since 2.9.0
      */
@@ -1210,6 +1188,7 @@ public class FileUtils {
      *
      * @param directory directory to delete
      * @throws IOException              in case deletion is unsuccessful
+     * @throws NullPointerException     if the parameter is {@code null}
      * @throws IllegalArgumentException if {@code directory} is not a directory
      */
     public static void deleteDirectory(final File directory) throws IOException {
@@ -1241,7 +1220,7 @@ public class FileUtils {
     }
 
     /**
-     * Deletes a file, never throwing an exception. If file is a directory, delete it and all sub-directories.
+     * Deletes a file, never throwing an exception. If file is a directory, delete it and all subdirectories.
      * <p>
      * The difference between File.delete() and this method are:
      * </p>
@@ -1253,7 +1232,6 @@ public class FileUtils {
      * @param file file or directory to delete, can be {@code null}
      * @return {@code true} if the file or directory was deleted, otherwise
      * {@code false}
-     *
      * @since 1.4
      */
     public static boolean deleteQuietly(final File file) {
@@ -1293,8 +1271,8 @@ public class FileUtils {
      * @param child     the file to consider as the child.
      * @return true is the candidate leaf is under by the specified composite. False otherwise.
      * @throws IOException              if an IO error occurs while checking the files.
-     * @throws NullPointerException if the given {@code File} is {@code null}.
-     * @throws IllegalArgumentException if the given {@code File} does not exist or is not a directory.
+     * @throws NullPointerException if the given {@link File} is {@code null}.
+     * @throws IllegalArgumentException if the given {@link File} does not exist or is not a directory.
      * @see FilenameUtils#directoryContains(String, String)
      * @since 2.2
      */
@@ -1345,7 +1323,7 @@ public class FileUtils {
     }
 
     /**
-     * Deletes a file or directory. For a directory, delete it and all sub-directories.
+     * Deletes a file or directory. For a directory, delete it and all subdirectories.
      * <p>
      * The difference between File.delete() and this method are:
      * </p>
@@ -1377,7 +1355,7 @@ public class FileUtils {
 
     /**
      * Schedules a file to be deleted when JVM exits.
-     * If file is directory delete it and all sub-directories.
+     * If file is directory delete it and all subdirectories.
      *
      * @param file file or directory to delete, must not be {@code null}.
      * @throws NullPointerException if the file is {@code null}.
@@ -1474,7 +1452,6 @@ public class FileUtils {
      * Returns a {@link File} representing the system temporary directory.
      *
      * @return the system temporary directory.
-     *
      * @since 2.0
      */
     public static File getTempDirectory() {
@@ -1485,7 +1462,6 @@ public class FileUtils {
      * Returns the path to the system temporary directory.
      *
      * @return the path to the system temporary directory.
-     *
      * @since 2.0
      */
     public static String getTempDirectoryPath() {
@@ -1496,7 +1472,6 @@ public class FileUtils {
      * Returns a {@link File} representing the user's home directory.
      *
      * @return the user's home directory.
-     *
      * @since 2.0
      */
     public static File getUserDirectory() {
@@ -1507,7 +1482,6 @@ public class FileUtils {
      * Returns the path to the user's home directory.
      *
      * @return the path to the user's home directory.
-     *
      * @since 2.0
      */
     public static String getUserDirectoryPath() {
@@ -1515,8 +1489,8 @@ public class FileUtils {
     }
 
     /**
-     * Tests whether the specified {@code File} is a directory or not. Implemented as a
-     * null-safe delegate to {@code Files.isDirectory(Path path, LinkOption... options)}.
+     * Tests whether the specified {@link File} is a directory or not. Implemented as a
+     * null-safe delegate to {@link Files#isDirectory(Path path, LinkOption... options)}.
      *
      * @param   file the path to the file.
      * @param   options options indicating how symbolic links are handled
@@ -1547,8 +1521,8 @@ public class FileUtils {
     }
 
     /**
-     * Tests if the specified {@code File} is newer than the specified {@code ChronoLocalDate}
-     * at the current time.
+     * Tests if the specified {@link File} is newer than the specified {@link ChronoLocalDate}
+     * at the end of day.
      *
      * <p>Note: The input date is assumed to be in the system default time-zone with the time
      * part set to the current time. To use a non-default time-zone use the method
@@ -1556,20 +1530,19 @@ public class FileUtils {
      * isFileNewer(file, chronoLocalDate.atTime(LocalTime.now(zoneId)), zoneId)} where
      * {@code zoneId} is a valid {@link ZoneId}.
      *
-     * @param file            the {@code File} of which the modification date must be compared.
+     * @param file            the {@link File} of which the modification date must be compared.
      * @param chronoLocalDate the date reference.
-     * @return true if the {@code File} exists and has been modified after the given
-     * {@code ChronoLocalDate} at the current time.
+     * @return true if the {@link File} exists and has been modified after the given
+     * {@link ChronoLocalDate} at the current time.
      * @throws NullPointerException if the file or local date is {@code null}.
-     *
      * @since 2.8.0
      */
     public static boolean isFileNewer(final File file, final ChronoLocalDate chronoLocalDate) {
-        return isFileNewer(file, chronoLocalDate, LocalTime.now());
+        return isFileNewer(file, chronoLocalDate, LocalTime.MAX);
     }
 
     /**
-     * Tests if the specified {@code File} is newer than the specified {@code ChronoLocalDate}
+     * Tests if the specified {@link File} is newer than the specified {@link ChronoLocalDate}
      * at the specified time.
      *
      * <p>Note: The input date and time are assumed to be in the system default time-zone. To use a
@@ -1577,13 +1550,12 @@ public class FileUtils {
      * isFileNewer(file, chronoLocalDate.atTime(localTime), zoneId)} where {@code zoneId} is a valid
      * {@link ZoneId}.
      *
-     * @param file            the {@code File} of which the modification date must be compared.
+     * @param file            the {@link File} of which the modification date must be compared.
      * @param chronoLocalDate the date reference.
      * @param localTime       the time reference.
-     * @return true if the {@code File} exists and has been modified after the given
-     * {@code ChronoLocalDate} at the given time.
+     * @return true if the {@link File} exists and has been modified after the given
+     * {@link ChronoLocalDate} at the given time.
      * @throws NullPointerException if the file, local date or zone ID is {@code null}.
-     *
      * @since 2.8.0
      */
     public static boolean isFileNewer(final File file, final ChronoLocalDate chronoLocalDate, final LocalTime localTime) {
@@ -1593,7 +1565,25 @@ public class FileUtils {
     }
 
     /**
-     * Tests if the specified {@code File} is newer than the specified {@code ChronoLocalDateTime}
+     * Tests if the specified {@link File} is newer than the specified {@link ChronoLocalDate} at the specified
+     * {@link OffsetTime}.
+     *
+     * @param file the {@link File} of which the modification date must be compared
+     * @param chronoLocalDate the date reference
+     * @param offsetTime the time reference
+     * @return true if the {@link File} exists and has been modified after the given {@link ChronoLocalDate} at the given
+     *         {@link OffsetTime}.
+     * @throws NullPointerException if the file, local date or zone ID is {@code null}
+     * @since 2.12.0
+     */
+    public static boolean isFileNewer(final File file, final ChronoLocalDate chronoLocalDate, final OffsetTime offsetTime) {
+        Objects.requireNonNull(chronoLocalDate, "chronoLocalDate");
+        Objects.requireNonNull(offsetTime, "offsetTime");
+        return isFileNewer(file, chronoLocalDate.atTime(offsetTime.toLocalTime()));
+    }
+
+    /**
+     * Tests if the specified {@link File} is newer than the specified {@link ChronoLocalDateTime}
      * at the system-default time zone.
      *
      * <p>Note: The input date and time is assumed to be in the system default time-zone. To use a
@@ -1601,12 +1591,11 @@ public class FileUtils {
      * isFileNewer(file, chronoLocalDateTime, zoneId)} where {@code zoneId} is a valid
      * {@link ZoneId}.
      *
-     * @param file                the {@code File} of which the modification date must be compared.
+     * @param file                the {@link File} of which the modification date must be compared.
      * @param chronoLocalDateTime the date reference.
-     * @return true if the {@code File} exists and has been modified after the given
-     * {@code ChronoLocalDateTime} at the system-default time zone.
+     * @return true if the {@link File} exists and has been modified after the given
+     * {@link ChronoLocalDateTime} at the system-default time zone.
      * @throws NullPointerException if the file or local date time is {@code null}.
-     *
      * @since 2.8.0
      */
     public static boolean isFileNewer(final File file, final ChronoLocalDateTime<?> chronoLocalDateTime) {
@@ -1614,16 +1603,15 @@ public class FileUtils {
     }
 
     /**
-     * Tests if the specified {@code File} is newer than the specified {@code ChronoLocalDateTime}
-     * at the specified {@code ZoneId}.
+     * Tests if the specified {@link File} is newer than the specified {@link ChronoLocalDateTime}
+     * at the specified {@link ZoneId}.
      *
-     * @param file                the {@code File} of which the modification date must be compared.
+     * @param file                the {@link File} of which the modification date must be compared.
      * @param chronoLocalDateTime the date reference.
      * @param zoneId              the time zone.
-     * @return true if the {@code File} exists and has been modified after the given
-     * {@code ChronoLocalDateTime} at the given {@code ZoneId}.
+     * @return true if the {@link File} exists and has been modified after the given
+     * {@link ChronoLocalDateTime} at the given {@link ZoneId}.
      * @throws NullPointerException if the file, local date time or zone ID is {@code null}.
-     *
      * @since 2.8.0
      */
     public static boolean isFileNewer(final File file, final ChronoLocalDateTime<?> chronoLocalDateTime, final ZoneId zoneId) {
@@ -1633,32 +1621,28 @@ public class FileUtils {
     }
 
     /**
-     * Tests if the specified {@code File} is newer than the specified {@code ChronoZonedDateTime}.
+     * Tests if the specified {@link File} is newer than the specified {@link ChronoZonedDateTime}.
      *
-     * @param file                the {@code File} of which the modification date must be compared.
+     * @param file                the {@link File} of which the modification date must be compared.
      * @param chronoZonedDateTime the date reference.
-     * @return true if the {@code File} exists and has been modified after the given
-     * {@code ChronoZonedDateTime}.
+     * @return true if the {@link File} exists and has been modified after the given
+     * {@link ChronoZonedDateTime}.
      * @throws NullPointerException if the file or zoned date time is {@code null}.
-     *
      * @since 2.8.0
      */
     public static boolean isFileNewer(final File file, final ChronoZonedDateTime<?> chronoZonedDateTime) {
+        Objects.requireNonNull(file, "file");
         Objects.requireNonNull(chronoZonedDateTime, "chronoZonedDateTime");
-        try {
-            return PathUtils.isNewer(file.toPath(), chronoZonedDateTime);
-        } catch (final IOException e) {
-            throw new UncheckedIOException(e);
-        }
+        return Uncheck.get(() -> PathUtils.isNewer(file.toPath(), chronoZonedDateTime));
     }
 
     /**
-     * Tests if the specified {@code File} is newer than the specified {@code Date}.
+     * Tests if the specified {@link File} is newer than the specified {@link Date}.
      *
-     * @param file the {@code File} of which the modification date must be compared.
+     * @param file the {@link File} of which the modification date must be compared.
      * @param date the date reference.
-     * @return true if the {@code File} exists and has been modified
-     * after the given {@code Date}.
+     * @return true if the {@link File} exists and has been modified
+     * after the given {@link Date}.
      * @throws NullPointerException if the file or date is {@code null}.
      */
     public static boolean isFileNewer(final File file, final Date date) {
@@ -1667,30 +1651,26 @@ public class FileUtils {
     }
 
     /**
-     * Tests if the specified {@code File} is newer than the reference {@code File}.
+     * Tests if the specified {@link File} is newer than the reference {@link File}.
      *
-     * @param file      the {@code File} of which the modification date must be compared.
-     * @param reference the {@code File} of which the modification date is used.
-     * @return true if the {@code File} exists and has been modified more
-     * recently than the reference {@code File}.
+     * @param file      the {@link File} of which the modification date must be compared.
+     * @param reference the {@link File} of which the modification date is used.
+     * @return true if the {@link File} exists and has been modified more
+     * recently than the reference {@link File}.
      * @throws NullPointerException if the file or reference file is {@code null}.
      * @throws IllegalArgumentException if the reference file doesn't exist.
      */
     public static boolean isFileNewer(final File file, final File reference) {
         requireExists(reference, "reference");
-        try {
-            return PathUtils.isNewer(file.toPath(), reference.toPath());
-        } catch (final IOException e) {
-            throw new UncheckedIOException(e);
-        }
+        return Uncheck.get(() -> PathUtils.isNewer(file.toPath(), reference.toPath()));
     }
 
     /**
-     * Tests if the specified {@code File} is newer than the specified {@code FileTime}.
+     * Tests if the specified {@link File} is newer than the specified {@link FileTime}.
      *
-     * @param file the {@code File} of which the modification date must be compared.
+     * @param file the {@link File} of which the modification date must be compared.
      * @param fileTime the file time reference.
-     * @return true if the {@code File} exists and has been modified after the given {@code FileTime}.
+     * @return true if the {@link File} exists and has been modified after the given {@link FileTime}.
      * @throws IOException if an I/O error occurs.
      * @throws NullPointerException if the file or local date is {@code null}.
      * @since 2.12.0
@@ -1701,44 +1681,50 @@ public class FileUtils {
     }
 
     /**
-     * Tests if the specified {@code File} is newer than the specified {@code Instant}.
+     * Tests if the specified {@link File} is newer than the specified {@link Instant}.
      *
-     * @param file the {@code File} of which the modification date must be compared.
+     * @param file the {@link File} of which the modification date must be compared.
      * @param instant the date reference.
-     * @return true if the {@code File} exists and has been modified after the given {@code Instant}.
+     * @return true if the {@link File} exists and has been modified after the given {@link Instant}.
      * @throws NullPointerException if the file or instant is {@code null}.
      * @since 2.8.0
      */
     public static boolean isFileNewer(final File file, final Instant instant) {
         Objects.requireNonNull(instant, "instant");
-        try {
-            return PathUtils.isNewer(file.toPath(), instant);
-        } catch (final IOException e) {
-            throw new UncheckedIOException(e);
-        }
+        return Uncheck.get(() -> PathUtils.isNewer(file.toPath(), instant));
     }
 
     /**
-     * Tests if the specified {@code File} is newer than the specified time reference.
+     * Tests if the specified {@link File} is newer than the specified time reference.
      *
-     * @param file       the {@code File} of which the modification date must be compared.
+     * @param file       the {@link File} of which the modification date must be compared.
      * @param timeMillis the time reference measured in milliseconds since the
      *                   epoch (00:00:00 GMT, January 1, 1970).
-     * @return true if the {@code File} exists and has been modified after the given time reference.
+     * @return true if the {@link File} exists and has been modified after the given time reference.
      * @throws NullPointerException if the file is {@code null}.
      */
     public static boolean isFileNewer(final File file, final long timeMillis) {
         Objects.requireNonNull(file, "file");
-        try {
-            return PathUtils.isNewer(file.toPath(), timeMillis);
-        } catch (final IOException e) {
-            throw new UncheckedIOException(e);
-        }
+        return Uncheck.get(() -> PathUtils.isNewer(file.toPath(), timeMillis));
     }
 
     /**
-     * Tests if the specified {@code File} is older than the specified {@code ChronoLocalDate}
-     * at the current time.
+     * Tests if the specified {@link File} is newer than the specified {@link OffsetDateTime}.
+     *
+     * @param file the {@link File} of which the modification date must be compared
+     * @param offsetDateTime the date reference
+     * @return true if the {@link File} exists and has been modified before the given {@link OffsetDateTime}.
+     * @throws NullPointerException if the file or zoned date time is {@code null}
+     * @since 2.12.0
+     */
+    public static boolean isFileNewer(final File file, final OffsetDateTime offsetDateTime) {
+        Objects.requireNonNull(offsetDateTime, "offsetDateTime");
+        return isFileNewer(file, offsetDateTime.toInstant());
+    }
+
+    /**
+     * Tests if the specified {@link File} is older than the specified {@link ChronoLocalDate}
+     * at the end of day.
      *
      * <p>Note: The input date is assumed to be in the system default time-zone with the time
      * part set to the current time. To use a non-default time-zone use the method
@@ -1746,37 +1732,35 @@ public class FileUtils {
      * isFileOlder(file, chronoLocalDate.atTime(LocalTime.now(zoneId)), zoneId)} where
      * {@code zoneId} is a valid {@link ZoneId}.
      *
-     * @param file            the {@code File} of which the modification date must be compared.
+     * @param file            the {@link File} of which the modification date must be compared.
      * @param chronoLocalDate the date reference.
-     * @return true if the {@code File} exists and has been modified before the given
-     * {@code ChronoLocalDate} at the current time.
+     * @return true if the {@link File} exists and has been modified before the given
+     * {@link ChronoLocalDate} at the current time.
      * @throws NullPointerException if the file or local date is {@code null}.
      * @see ZoneId#systemDefault()
      * @see LocalTime#now()
-     *
      * @since 2.8.0
      */
     public static boolean isFileOlder(final File file, final ChronoLocalDate chronoLocalDate) {
-        return isFileOlder(file, chronoLocalDate, LocalTime.now());
+        return isFileOlder(file, chronoLocalDate, LocalTime.MAX);
     }
 
     /**
-     * Tests if the specified {@code File} is older than the specified {@code ChronoLocalDate}
-     * at the specified {@code LocalTime}.
+     * Tests if the specified {@link File} is older than the specified {@link ChronoLocalDate}
+     * at the specified {@link LocalTime}.
      *
      * <p>Note: The input date and time are assumed to be in the system default time-zone. To use a
      * non-default time-zone use the method {@link #isFileOlder(File, ChronoLocalDateTime, ZoneId)
      * isFileOlder(file, chronoLocalDate.atTime(localTime), zoneId)} where {@code zoneId} is a valid
      * {@link ZoneId}.
      *
-     * @param file            the {@code File} of which the modification date must be compared.
+     * @param file            the {@link File} of which the modification date must be compared.
      * @param chronoLocalDate the date reference.
      * @param localTime       the time reference.
-     * @return true if the {@code File} exists and has been modified before the
-     * given {@code ChronoLocalDate} at the specified time.
+     * @return true if the {@link File} exists and has been modified before the
+     * given {@link ChronoLocalDate} at the specified time.
      * @throws NullPointerException if the file, local date or local time is {@code null}.
      * @see ZoneId#systemDefault()
-     *
      * @since 2.8.0
      */
     public static boolean isFileOlder(final File file, final ChronoLocalDate chronoLocalDate, final LocalTime localTime) {
@@ -1786,7 +1770,25 @@ public class FileUtils {
     }
 
     /**
-     * Tests if the specified {@code File} is older than the specified {@code ChronoLocalDateTime}
+     * Tests if the specified {@link File} is older than the specified {@link ChronoLocalDate} at the specified
+     * {@link OffsetTime}.
+     *
+     * @param file the {@link File} of which the modification date must be compared
+     * @param chronoLocalDate the date reference
+     * @param offsetTime the time reference
+     * @return true if the {@link File} exists and has been modified after the given {@link ChronoLocalDate} at the given
+     *         {@link OffsetTime}.
+     * @throws NullPointerException if the file, local date or zone ID is {@code null}
+     * @since 2.12.0
+     */
+    public static boolean isFileOlder(final File file, final ChronoLocalDate chronoLocalDate, final OffsetTime offsetTime) {
+        Objects.requireNonNull(chronoLocalDate, "chronoLocalDate");
+        Objects.requireNonNull(offsetTime, "offsetTime");
+        return isFileOlder(file, chronoLocalDate.atTime(offsetTime.toLocalTime()));
+    }
+
+    /**
+     * Tests if the specified {@link File} is older than the specified {@link ChronoLocalDateTime}
      * at the system-default time zone.
      *
      * <p>Note: The input date and time is assumed to be in the system default time-zone. To use a
@@ -1794,13 +1796,12 @@ public class FileUtils {
      * isFileOlder(file, chronoLocalDateTime, zoneId)} where {@code zoneId} is a valid
      * {@link ZoneId}.
      *
-     * @param file                the {@code File} of which the modification date must be compared.
+     * @param file                the {@link File} of which the modification date must be compared.
      * @param chronoLocalDateTime the date reference.
-     * @return true if the {@code File} exists and has been modified before the given
-     * {@code ChronoLocalDateTime} at the system-default time zone.
+     * @return true if the {@link File} exists and has been modified before the given
+     * {@link ChronoLocalDateTime} at the system-default time zone.
      * @throws NullPointerException if the file or local date time is {@code null}.
      * @see ZoneId#systemDefault()
-     *
      * @since 2.8.0
      */
     public static boolean isFileOlder(final File file, final ChronoLocalDateTime<?> chronoLocalDateTime) {
@@ -1808,16 +1809,15 @@ public class FileUtils {
     }
 
     /**
-     * Tests if the specified {@code File} is older than the specified {@code ChronoLocalDateTime}
-     * at the specified {@code ZoneId}.
+     * Tests if the specified {@link File} is older than the specified {@link ChronoLocalDateTime}
+     * at the specified {@link ZoneId}.
      *
-     * @param file          the {@code File} of which the modification date must be compared.
+     * @param file          the {@link File} of which the modification date must be compared.
      * @param chronoLocalDateTime the date reference.
      * @param zoneId        the time zone.
-     * @return true if the {@code File} exists and has been modified before the given
-     * {@code ChronoLocalDateTime} at the given {@code ZoneId}.
+     * @return true if the {@link File} exists and has been modified before the given
+     * {@link ChronoLocalDateTime} at the given {@link ZoneId}.
      * @throws NullPointerException if the file, local date time or zone ID is {@code null}.
-     *
      * @since 2.8.0
      */
     public static boolean isFileOlder(final File file, final ChronoLocalDateTime<?> chronoLocalDateTime, final ZoneId zoneId) {
@@ -1827,14 +1827,13 @@ public class FileUtils {
     }
 
     /**
-     * Tests if the specified {@code File} is older than the specified {@code ChronoZonedDateTime}.
+     * Tests if the specified {@link File} is older than the specified {@link ChronoZonedDateTime}.
      *
-     * @param file                the {@code File} of which the modification date must be compared.
+     * @param file                the {@link File} of which the modification date must be compared.
      * @param chronoZonedDateTime the date reference.
-     * @return true if the {@code File} exists and has been modified before the given
-     * {@code ChronoZonedDateTime}.
+     * @return true if the {@link File} exists and has been modified before the given
+     * {@link ChronoZonedDateTime}.
      * @throws NullPointerException if the file or zoned date time is {@code null}.
-     *
      * @since 2.8.0
      */
     public static boolean isFileOlder(final File file, final ChronoZonedDateTime<?> chronoZonedDateTime) {
@@ -1843,11 +1842,11 @@ public class FileUtils {
     }
 
     /**
-     * Tests if the specified {@code File} is older than the specified {@code Date}.
+     * Tests if the specified {@link File} is older than the specified {@link Date}.
      *
-     * @param file the {@code File} of which the modification date must be compared.
+     * @param file the {@link File} of which the modification date must be compared.
      * @param date the date reference.
-     * @return true if the {@code File} exists and has been modified before the given {@code Date}.
+     * @return true if the {@link File} exists and has been modified before the given {@link Date}.
      * @throws NullPointerException if the file or date is {@code null}.
      */
     public static boolean isFileOlder(final File file, final Date date) {
@@ -1856,29 +1855,25 @@ public class FileUtils {
     }
 
     /**
-     * Tests if the specified {@code File} is older than the reference {@code File}.
+     * Tests if the specified {@link File} is older than the reference {@link File}.
      *
-     * @param file      the {@code File} of which the modification date must be compared.
-     * @param reference the {@code File} of which the modification date is used.
-     * @return true if the {@code File} exists and has been modified before the reference {@code File}.
+     * @param file      the {@link File} of which the modification date must be compared.
+     * @param reference the {@link File} of which the modification date is used.
+     * @return true if the {@link File} exists and has been modified before the reference {@link File}.
      * @throws NullPointerException if the file or reference file is {@code null}.
      * @throws IllegalArgumentException if the reference file doesn't exist.
      */
     public static boolean isFileOlder(final File file, final File reference) {
         requireExists(reference, "reference");
-        try {
-            return PathUtils.isOlder(file.toPath(), reference.toPath());
-        } catch (final IOException e) {
-            throw new UncheckedIOException(e);
-        }
+        return Uncheck.get(() -> PathUtils.isOlder(file.toPath(), reference.toPath()));
     }
 
     /**
-     * Tests if the specified {@code File} is older than the specified {@code FileTime}.
+     * Tests if the specified {@link File} is older than the specified {@link FileTime}.
      *
-     * @param file the {@code File} of which the modification date must be compared.
+     * @param file the {@link File} of which the modification date must be compared.
      * @param fileTime the file time reference.
-     * @return true if the {@code File} exists and has been modified before the given {@code FileTime}.
+     * @return true if the {@link File} exists and has been modified before the given {@link FileTime}.
      * @throws IOException if an I/O error occurs.
      * @throws NullPointerException if the file or local date is {@code null}.
      * @since 2.12.0
@@ -1889,44 +1884,50 @@ public class FileUtils {
     }
 
     /**
-     * Tests if the specified {@code File} is older than the specified {@code Instant}.
+     * Tests if the specified {@link File} is older than the specified {@link Instant}.
      *
-     * @param file    the {@code File} of which the modification date must be compared.
+     * @param file    the {@link File} of which the modification date must be compared.
      * @param instant the date reference.
-     * @return true if the {@code File} exists and has been modified before the given {@code Instant}.
+     * @return true if the {@link File} exists and has been modified before the given {@link Instant}.
      * @throws NullPointerException if the file or instant is {@code null}.
      * @since 2.8.0
      */
     public static boolean isFileOlder(final File file, final Instant instant) {
         Objects.requireNonNull(instant, "instant");
-        try {
-            return PathUtils.isOlder(file.toPath(), instant);
-        } catch (final IOException e) {
-            throw new UncheckedIOException(e);
-        }
+        return Uncheck.get(() -> PathUtils.isOlder(file.toPath(), instant));
     }
 
     /**
-     * Tests if the specified {@code File} is older than the specified time reference.
+     * Tests if the specified {@link File} is older than the specified time reference.
      *
-     * @param file       the {@code File} of which the modification date must be compared.
+     * @param file       the {@link File} of which the modification date must be compared.
      * @param timeMillis the time reference measured in milliseconds since the
      *                   epoch (00:00:00 GMT, January 1, 1970).
-     * @return true if the {@code File} exists and has been modified before the given time reference.
+     * @return true if the {@link File} exists and has been modified before the given time reference.
      * @throws NullPointerException if the file is {@code null}.
      */
     public static boolean isFileOlder(final File file, final long timeMillis) {
         Objects.requireNonNull(file, "file");
-        try {
-            return PathUtils.isOlder(file.toPath(), timeMillis);
-        } catch (final IOException e) {
-            throw new UncheckedIOException(e);
-        }
+        return Uncheck.get(() -> PathUtils.isOlder(file.toPath(), timeMillis));
     }
 
     /**
-     * Tests whether the specified {@code File} is a regular file or not. Implemented as a
-     * null-safe delegate to {@code Files.isRegularFile(Path path, LinkOption... options)}.
+     * Tests if the specified {@link File} is older than the specified {@link OffsetDateTime}.
+     *
+     * @param file the {@link File} of which the modification date must be compared
+     * @param offsetDateTime the date reference
+     * @return true if the {@link File} exists and has been modified before the given {@link OffsetDateTime}.
+     * @throws NullPointerException if the file or zoned date time is {@code null}
+     * @since 2.12.0
+     */
+    public static boolean isFileOlder(final File file, final OffsetDateTime offsetDateTime) {
+        Objects.requireNonNull(offsetDateTime, "offsetDateTime");
+        return isFileOlder(file, offsetDateTime.toInstant());
+    }
+
+    /**
+     * Tests whether the specified {@link File} is a regular file or not. Implemented as a
+     * null-safe delegate to {@link Files#isRegularFile(Path path, LinkOption... options)}.
      *
      * @param   file the path to the file.
      * @param   options options indicating how symbolic links are handled
@@ -1996,11 +1997,7 @@ public class FileUtils {
      * @since 1.2
      */
     public static Iterator<File> iterateFiles(final File directory, final String[] extensions, final boolean recursive) {
-        try {
-            return StreamIterator.iterator(streamFiles(directory, recursive, extensions));
-        } catch (final IOException e) {
-            throw UncheckedIOExceptions.create(directory, e);
-        }
+        return Uncheck.apply(d -> streamFiles(d, recursive, extensions).iterator(), directory);
     }
 
     /**
@@ -2096,15 +2093,11 @@ public class FileUtils {
         // https://bugs.openjdk.java.net/browse/JDK-8177809
         // File.lastModified() is losing milliseconds (always ends in 000)
         // This bug is in OpenJDK 8 and 9, and fixed in 10.
-        try {
-            return lastModified(file);
-        } catch (final IOException e) {
-            throw UncheckedIOExceptions.create(file, e);
-        }
+        return Uncheck.apply(FileUtils::lastModified, file);
     }
 
     /**
-     * Returns an Iterator for the lines in a {@code File} using the default encoding for the VM.
+     * Returns an Iterator for the lines in a {@link File} using the default encoding for the VM.
      *
      * @param file the file to open for input, must not be {@code null}
      * @return an Iterator of the lines in the file, never {@code null}
@@ -2120,9 +2113,9 @@ public class FileUtils {
     }
 
     /**
-     * Returns an Iterator for the lines in a {@code File}.
+     * Returns an Iterator for the lines in a {@link File}.
      * <p>
-     * This method opens an {@code InputStream} for the file.
+     * This method opens an {@link InputStream} for the file.
      * When you have finished with the iterator you should close the stream
      * to free internal resources. This can be done by using a try-with-resources block or calling the
      * {@link LineIterator#close()} method.
@@ -2131,7 +2124,7 @@ public class FileUtils {
      * The recommended usage pattern is:
      * </p>
      * <pre>
-     * LineIterator it = FileUtils.lineIterator(file, "UTF-8");
+     * LineIterator it = FileUtils.lineIterator(file, StandardCharsets.UTF_8.name());
      * try {
      *   while (it.hasNext()) {
      *     String line = it.nextLine();
@@ -2172,7 +2165,8 @@ public class FileUtils {
         final boolean isDirFilterSet = dirFilter != null;
         final FileEqualsFileFilter rootDirFilter = new FileEqualsFileFilter(directory);
         final PathFilter dirPathFilter = isDirFilterSet ? rootDirFilter.or(dirFilter) : rootDirFilter;
-        final AccumulatorPathVisitor visitor = new AccumulatorPathVisitor(Counters.noopPathCounters(), fileFilter, dirPathFilter);
+        final AccumulatorPathVisitor visitor = new AccumulatorPathVisitor(Counters.noopPathCounters(), fileFilter, dirPathFilter,
+            (p, e) -> FileVisitResult.CONTINUE);
         final Set<FileVisitOption> optionSet = new HashSet<>();
         Collections.addAll(optionSet, options);
         Files.walkFileTree(directory.toPath(), optionSet, toMaxDepth(isDirFilterSet), visitor);
@@ -2229,12 +2223,9 @@ public class FileUtils {
      * @see org.apache.commons.io.filefilter.NameFileFilter
      */
     public static Collection<File> listFiles(final File directory, final IOFileFilter fileFilter, final IOFileFilter dirFilter) {
-        try {
-            final AccumulatorPathVisitor visitor = listAccumulate(directory, FileFileFilter.INSTANCE.and(fileFilter), dirFilter, FileVisitOption.FOLLOW_LINKS);
-            return visitor.getFileList().stream().map(Path::toFile).collect(Collectors.toList());
-        } catch (final IOException e) {
-            throw UncheckedIOExceptions.create(directory, e);
-        }
+        final AccumulatorPathVisitor visitor = Uncheck
+            .apply(d -> listAccumulate(d, FileFileFilter.INSTANCE.and(fileFilter), dirFilter, FileVisitOption.FOLLOW_LINKS), directory);
+        return visitor.getFileList().stream().map(Path::toFile).collect(Collectors.toList());
     }
 
     /**
@@ -2248,11 +2239,7 @@ public class FileUtils {
      * @return a collection of java.io.File with the matching files
      */
     public static Collection<File> listFiles(final File directory, final String[] extensions, final boolean recursive) {
-        try {
-            return toList(streamFiles(directory, recursive, extensions));
-        } catch (final IOException e) {
-            throw UncheckedIOExceptions.create(directory, e);
-        }
+        return Uncheck.apply(d -> toList(streamFiles(d, recursive, extensions)), directory);
     }
 
     /**
@@ -2275,14 +2262,11 @@ public class FileUtils {
      * @since 2.2
      */
     public static Collection<File> listFilesAndDirs(final File directory, final IOFileFilter fileFilter, final IOFileFilter dirFilter) {
-        try {
-            final AccumulatorPathVisitor visitor = listAccumulate(directory, fileFilter, dirFilter, FileVisitOption.FOLLOW_LINKS);
-            final List<Path> list = visitor.getFileList();
-            list.addAll(visitor.getDirList());
-            return list.stream().map(Path::toFile).collect(Collectors.toList());
-        } catch (final IOException e) {
-            throw UncheckedIOExceptions.create(directory, e);
-        }
+        final AccumulatorPathVisitor visitor = Uncheck.apply(d -> listAccumulate(d, fileFilter, dirFilter, FileVisitOption.FOLLOW_LINKS),
+            directory);
+        final List<Path> list = visitor.getFileList();
+        list.addAll(visitor.getDirList());
+        return list.stream().map(Path::toFile).collect(Collectors.toList());
     }
 
     /**
@@ -2310,10 +2294,10 @@ public class FileUtils {
      *
      * @param srcDir the directory to be moved.
      * @param destDir the destination directory.
-     * @throws NullPointerException if any of the given {@code File}s are {@code null}.
+     * @throws NullPointerException if any of the given {@link File}s are {@code null}.
      * @throws IllegalArgumentException if the source or destination is invalid.
      * @throws FileNotFoundException if the source does not exist.
-     * @throws IOException if an error occurs or setting the last-modified time didn't succeeded.
+     * @throws IOException if an error occurs or setting the last-modified time didn't succeed.
      * @since 1.4
      */
     public static void moveDirectory(final File srcDir, final File destDir) throws IOException {
@@ -2340,10 +2324,10 @@ public class FileUtils {
      * @param destDir the destination file.
      * @param createDestDir If {@code true} create the destination directory, otherwise if {@code false} throw an
      *        IOException.
-     * @throws NullPointerException if any of the given {@code File}s are {@code null}.
+     * @throws NullPointerException if any of the given {@link File}s are {@code null}.
      * @throws IllegalArgumentException if the source or destination is invalid.
      * @throws FileNotFoundException if the source does not exist.
-     * @throws IOException if an error occurs or setting the last-modified time didn't succeeded.
+     * @throws IOException if an error occurs or setting the last-modified time didn't succeed.
      * @since 1.4
      */
     public static void moveDirectoryToDirectory(final File source, final File destDir, final boolean createDestDir) throws IOException {
@@ -2371,7 +2355,7 @@ public class FileUtils {
      *
      * @param srcFile the file to be moved.
      * @param destFile the destination file.
-     * @throws NullPointerException if any of the given {@code File}s are {@code null}.
+     * @throws NullPointerException if any of the given {@link File}s are {@code null}.
      * @throws FileExistsException if the destination file exists.
      * @throws FileNotFoundException if the source file does not exist.
      * @throws IOException if source or destination is invalid.
@@ -2391,11 +2375,11 @@ public class FileUtils {
      * @param srcFile the file to be moved.
      * @param destFile the destination file.
      * @param copyOptions Copy options.
-     * @throws NullPointerException if any of the given {@code File}s are {@code null}.
+     * @throws NullPointerException if any of the given {@link File}s are {@code null}.
      * @throws FileExistsException if the destination file exists.
      * @throws FileNotFoundException if the source file does not exist.
      * @throws IOException if source or destination is invalid.
-     * @throws IOException if an error occurs or setting the last-modified time didn't succeeded.
+     * @throws IOException if an error occurs or setting the last-modified time didn't succeed.
      * @since 2.9.0
      */
     public static void moveFile(final File srcFile, final File destFile, final CopyOption... copyOptions) throws IOException {
@@ -2419,11 +2403,11 @@ public class FileUtils {
      * @param destDir the destination file.
      * @param createDestDir If {@code true} create the destination directory, otherwise if {@code false} throw an
      *        IOException.
-     * @throws NullPointerException if any of the given {@code File}s are {@code null}.
+     * @throws NullPointerException if any of the given {@link File}s are {@code null}.
      * @throws FileExistsException if the destination file exists.
      * @throws FileNotFoundException if the source file does not exist.
      * @throws IOException if source or destination is invalid.
-     * @throws IOException if an error occurs or setting the last-modified time didn't succeeded.
+     * @throws IOException if an error occurs or setting the last-modified time didn't succeed.
      * @since 1.4
      */
     public static void moveFileToDirectory(final File srcFile, final File destDir, final boolean createDestDir) throws IOException {
@@ -2446,11 +2430,11 @@ public class FileUtils {
      * @param destDir the destination directory.
      * @param createDestDir If {@code true} create the destination directory, otherwise if {@code false} throw an
      *        IOException.
-     * @throws NullPointerException if any of the given {@code File}s are {@code null}.
+     * @throws NullPointerException if any of the given {@link File}s are {@code null}.
      * @throws FileExistsException if the directory or file exists in the destination directory.
      * @throws FileNotFoundException if the source file does not exist.
      * @throws IOException if source or destination is invalid.
-     * @throws IOException if an error occurs or setting the last-modified time didn't succeeded.
+     * @throws IOException if an error occurs or setting the last-modified time didn't succeed.
      * @since 1.4
      */
     public static void moveToDirectory(final File src, final File destDir, final boolean createDestDir) throws IOException {
@@ -2474,7 +2458,7 @@ public class FileUtils {
      * @since 2.12.0
      */
     public static OutputStream newOutputStream(final File file, final boolean append) throws IOException {
-        return PathUtils.newOutputStream(file.toPath(), append);
+        return PathUtils.newOutputStream(Objects.requireNonNull(file, "file").toPath(), append);
     }
 
     /**
@@ -2701,6 +2685,7 @@ public class FileUtils {
      *
      * @param file1 The first file to compare.
      * @param file2 The second file to compare.
+     * @throws IOException if an I/O error occurs.
      * @throws IllegalArgumentException if the given files' canonical representations are equal.
      */
     private static void requireCanonicalPathsNotEquals(final File file1, final File file2) throws IOException {
@@ -2717,7 +2702,7 @@ public class FileUtils {
      *
      * @param file The file to test.
      * @param name The parameter name to use in the exception message.
-     * @throws NullPointerException if the given {@code File} is {@code null}.
+     * @throws NullPointerException if the given {@link File} is {@code null}.
      * @throws IllegalArgumentException if the file is not writable.
      */
     private static void requireCanWrite(final File file, final String name) {
@@ -2728,13 +2713,13 @@ public class FileUtils {
     }
 
     /**
-     * Requires that the given {@code File} is a directory.
+     * Requires that the given {@link File} is a directory.
      *
-     * @param directory The {@code File} to check.
+     * @param directory The {@link File} to check.
      * @param name The parameter name to use in the exception message in case of null input or if the file is not a directory.
      * @return the given directory.
-     * @throws NullPointerException if the given {@code File} is {@code null}.
-     * @throws IllegalArgumentException if the given {@code File} does not exist or is not a directory.
+     * @throws NullPointerException if the given {@link File} is {@code null}.
+     * @throws IllegalArgumentException if the given {@link File} does not exist or is not a directory.
      */
     private static File requireDirectory(final File directory, final String name) {
         Objects.requireNonNull(directory, name);
@@ -2745,13 +2730,13 @@ public class FileUtils {
     }
 
     /**
-     * Requires that the given {@code File} exists and is a directory.
+     * Requires that the given {@link File} exists and is a directory.
      *
-     * @param directory The {@code File} to check.
+     * @param directory The {@link File} to check.
      * @param name The parameter name to use in the exception message in case of null input.
      * @return the given directory.
-     * @throws NullPointerException if the given {@code File} is {@code null}.
-     * @throws IllegalArgumentException if the given {@code File} does not exist or is not a directory.
+     * @throws NullPointerException if the given {@link File} is {@code null}.
+     * @throws IllegalArgumentException if the given {@link File} does not exist or is not a directory.
      */
     private static File requireDirectoryExists(final File directory, final String name) {
         requireExists(directory, name);
@@ -2760,13 +2745,13 @@ public class FileUtils {
     }
 
     /**
-     * Requires that the given {@code File} is a directory if it exists.
+     * Requires that the given {@link File} is a directory if it exists.
      *
-     * @param directory The {@code File} to check.
+     * @param directory The {@link File} to check.
      * @param name The parameter name to use in the exception message in case of null input.
      * @return the given directory.
-     * @throws NullPointerException if the given {@code File} is {@code null}.
-     * @throws IllegalArgumentException if the given {@code File} exists but is not a directory.
+     * @throws NullPointerException if the given {@link File} is {@code null}.
+     * @throws IllegalArgumentException if the given {@link File} exists but is not a directory.
      */
     private static File requireDirectoryIfExists(final File directory, final String name) {
         Objects.requireNonNull(directory, name);
@@ -2777,65 +2762,47 @@ public class FileUtils {
     }
 
     /**
-     * Requires that two file lengths are equal.
+     * Requires that the given {@link File} exists and throws an {@link IllegalArgumentException} if it doesn't.
      *
-     * @param srcFile Source file.
-     * @param destFile Destination file.
-     * @param srcLen Source file length.
-     * @param dstLen Destination file length
-     * @throws IOException Thrown when the given sizes are not equal.
-     */
-    private static void requireEqualSizes(final File srcFile, final File destFile, final long srcLen, final long dstLen) throws IOException {
-        if (srcLen != dstLen) {
-            throw new IOException(
-                "Failed to copy full contents from '" + srcFile + "' to '" + destFile + "' Expected length: " + srcLen + " Actual: " + dstLen);
-        }
-    }
-
-    /**
-     * Requires that the given {@code File} exists and throws an {@link IllegalArgumentException} if it doesn't.
-     *
-     * @param file The {@code File} to check.
+     * @param file The {@link File} to check.
      * @param fileParamName The parameter name to use in the exception message in case of {@code null} input.
      * @return the given file.
-     * @throws NullPointerException if the given {@code File} is {@code null}.
-     * @throws IllegalArgumentException if the given {@code File} does not exist.
+     * @throws NullPointerException if the given {@link File} is {@code null}.
+     * @throws IllegalArgumentException if the given {@link File} does not exist.
      */
     private static File requireExists(final File file, final String fileParamName) {
         Objects.requireNonNull(file, fileParamName);
         if (!file.exists()) {
-            throw new IllegalArgumentException(
-                "File system element for parameter '" + fileParamName + "' does not exist: '" + file + "'");
+            throw new IllegalArgumentException("File system element for parameter '" + fileParamName + "' does not exist: '" + file + "'");
         }
         return file;
     }
 
     /**
-     * Requires that the given {@code File} exists and throws an {@link FileNotFoundException} if it doesn't.
+     * Requires that the given {@link File} exists and throws an {@link FileNotFoundException} if it doesn't.
      *
-     * @param file The {@code File} to check.
+     * @param file The {@link File} to check.
      * @param fileParamName The parameter name to use in the exception message in case of {@code null} input.
      * @return the given file.
-     * @throws NullPointerException if the given {@code File} is {@code null}.
-     * @throws FileNotFoundException if the given {@code File} does not exist.
+     * @throws NullPointerException if the given {@link File} is {@code null}.
+     * @throws FileNotFoundException if the given {@link File} does not exist.
      */
     private static File requireExistsChecked(final File file, final String fileParamName) throws FileNotFoundException {
         Objects.requireNonNull(file, fileParamName);
         if (!file.exists()) {
-            throw new FileNotFoundException(
-                "File system element for parameter '" + fileParamName + "' does not exist: '" + file + "'");
+            throw new FileNotFoundException("File system element for parameter '" + fileParamName + "' does not exist: '" + file + "'");
         }
         return file;
     }
 
     /**
-     * Requires that the given {@code File} is a file.
+     * Requires that the given {@link File} is a file.
      *
-     * @param file The {@code File} to check.
+     * @param file The {@link File} to check.
      * @param name The parameter name to use in the exception message.
      * @return the given file.
-     * @throws NullPointerException if the given {@code File} is {@code null}.
-     * @throws IllegalArgumentException if the given {@code File} does not exist or is not a file.
+     * @throws NullPointerException if the given {@link File} is {@code null}.
+     * @throws IllegalArgumentException if the given {@link File} does not exist or is not a file.
      */
     private static File requireFile(final File file, final String name) {
         Objects.requireNonNull(file, name);
@@ -2850,7 +2817,7 @@ public class FileUtils {
      *
      * @param source the source file
      * @param destination the destination
-     * @throws NullPointerException if any of the given {@code File}s are {@code null}.
+     * @throws NullPointerException if any of the given {@link File}s are {@code null}.
      * @throws FileNotFoundException if the source does not exist.
      */
     private static void requireFileCopy(final File source, final File destination) throws FileNotFoundException {
@@ -2859,13 +2826,13 @@ public class FileUtils {
     }
 
     /**
-     * Requires that the given {@code File} is a file if it exists.
+     * Requires that the given {@link File} is a file if it exists.
      *
-     * @param file The {@code File} to check.
+     * @param file The {@link File} to check.
      * @param name The parameter name to use in the exception message in case of null input.
      * @return the given directory.
-     * @throws NullPointerException if the given {@code File} is {@code null}.
-     * @throws IllegalArgumentException if the given {@code File} does exists but is not a directory.
+     * @throws NullPointerException if the given {@link File} is {@code null}.
+     * @throws IllegalArgumentException if the given {@link File} exists but is not a directory.
      */
     private static File requireFileIfExists(final File file, final String name) {
         Objects.requireNonNull(file, name);
@@ -2927,16 +2894,11 @@ public class FileUtils {
      * @throws NullPointerException     if the file is {@code null}.
      * @throws IllegalArgumentException if the file does not exist.
      * @throws UncheckedIOException if an IO error occurs.
-     *
      * @since 2.0
      */
     public static long sizeOf(final File file) {
         requireExists(file, "file");
-        try {
-            return PathUtils.sizeOf(file.toPath());
-        } catch (final IOException e) {
-            throw new UncheckedIOException(e);
-        }
+        return Uncheck.get(() -> PathUtils.sizeOf(file.toPath()));
     }
 
     /**
@@ -2955,16 +2917,11 @@ public class FileUtils {
      * @throws NullPointerException     if the file is {@code null}.
      * @throws IllegalArgumentException if the file does not exist.
      * @throws UncheckedIOException if an IO error occurs.
-     *
      * @since 2.4
      */
     public static BigInteger sizeOfAsBigInteger(final File file) {
         requireExists(file, "file");
-        try {
-            return PathUtils.sizeOfAsBigInteger(file.toPath());
-        } catch (final IOException e) {
-            throw new UncheckedIOException(e);
-        }
+        return Uncheck.get(() -> PathUtils.sizeOfAsBigInteger(file.toPath()));
     }
 
     /**
@@ -2983,11 +2940,7 @@ public class FileUtils {
      */
     public static long sizeOfDirectory(final File directory) {
         requireDirectoryExists(directory, "directory");
-        try {
-            return PathUtils.sizeOfDirectory(directory.toPath());
-        } catch (final IOException e) {
-            throw new UncheckedIOException(e);
-        }
+        return Uncheck.get(() -> PathUtils.sizeOfDirectory(directory.toPath()));
     }
 
     /**
@@ -3001,12 +2954,7 @@ public class FileUtils {
      */
     public static BigInteger sizeOfDirectoryAsBigInteger(final File directory) {
         requireDirectoryExists(directory, "directory");
-        try {
-            return PathUtils.sizeOfDirectoryAsBigInteger(directory.toPath());
-        } catch (final IOException e) {
-            throw new UncheckedIOException(e);
-        }
-
+        return Uncheck.get(() -> PathUtils.sizeOfDirectoryAsBigInteger(directory.toPath()));
     }
 
     /**
@@ -3031,7 +2979,7 @@ public class FileUtils {
     }
 
     /**
-     * Converts from a {@code URL} to a {@code File}.
+     * Converts from a {@link URL} to a {@link File}.
      * <p>
      * From version 1.1 this method will decode the URL.
      * Syntax such as {@code file:///my%20docs/file.txt} will be
@@ -3042,7 +2990,7 @@ public class FileUtils {
      * </p>
      *
      * @param url the file URL to convert, {@code null} returns {@code null}
-     * @return the equivalent {@code File} object, or {@code null}
+     * @return the equivalent {@link File} object, or {@code null}
      * if the URL's protocol is not {@code file}
      */
     public static File toFile(final URL url) {
@@ -3054,7 +3002,7 @@ public class FileUtils {
     }
 
     /**
-     * Converts each of an array of {@code URL} to a {@code File}.
+     * Converts each of an array of {@link URL} to a {@link File}.
      * <p>
      * Returns an array of the same size as the input.
      * If the input is {@code null}, an empty array is returned.
@@ -3113,38 +3061,27 @@ public class FileUtils {
      * @throws NullPointerException if the parameter is null
      */
     private static String[] toSuffixes(final String... extensions) {
-        Objects.requireNonNull(extensions, "extensions");
-        final String[] suffixes = new String[extensions.length];
-        for (int i = 0; i < extensions.length; i++) {
-            suffixes[i] = "." + extensions[i];
-        }
-        return suffixes;
+        return Stream.of(Objects.requireNonNull(extensions, "extensions")).map(e -> "." + e).toArray(String[]::new);
     }
 
     /**
-     * Implements the same behavior as the "touch" utility on Unix. It creates
-     * a new file with size 0 or, if the file exists already, it is opened and
-     * closed without modifying it, but updating the file date and time.
+     * Implements behavior similar to the Unix "touch" utility. Creates a new file with size 0, or, if the file exists, just
+     * updates the file's modified time.
      * <p>
-     * NOTE: As from v1.3, this method throws an IOException if the last
-     * modified date of the file cannot be set. Also, as from v1.3 this method
-     * creates parent directories if they do not exist.
+     * NOTE: As from v1.3, this method throws an IOException if the last modified date of the file cannot be set. Also, as
+     * from v1.3 this method creates parent directories if they do not exist.
      * </p>
      *
      * @param file the File to touch.
-     * @throws IOException if an I/O problem occurs.
-     * @throws IOException if setting the last-modified time failed.
+     * @throws NullPointerException if the parameter is {@code null}.
+     * @throws IOException if setting the last-modified time failed or an I/O problem occurs.
      */
     public static void touch(final File file) throws IOException {
-        Objects.requireNonNull(file, "file");
-        if (!file.exists()) {
-            newOutputStream(file, false).close();
-        }
-        FileTimes.setLastModifiedTime(file.toPath());
+        PathUtils.touch(Objects.requireNonNull(file, "file").toPath());
     }
 
     /**
-     * Converts each of an array of {@code File} to a {@code URL}.
+     * Converts each of an array of {@link File} to a {@link URL}.
      * <p>
      * Returns an array of the same size as the input.
      * </p>
@@ -3242,8 +3179,6 @@ public class FileUtils {
     public static void write(final File file, final CharSequence data, final Charset charset) throws IOException {
         write(file, data, charset, false);
     }
-
-    // Private method, must be invoked will a directory parameter
 
     /**
      * Writes a CharSequence to a file creating the file if it does not exist.
@@ -3361,7 +3296,7 @@ public class FileUtils {
 
     /**
      * Writes the {@code toString()} value of each item in a collection to
-     * the specified {@code File} line by line.
+     * the specified {@link File} line by line.
      * The default VM encoding and the default line ending will be used.
      *
      * @param file  the file to write to
@@ -3375,7 +3310,7 @@ public class FileUtils {
 
     /**
      * Writes the {@code toString()} value of each item in a collection to
-     * the specified {@code File} line by line.
+     * the specified {@link File} line by line.
      * The default VM encoding and the default line ending will be used.
      *
      * @param file   the file to write to
@@ -3389,10 +3324,9 @@ public class FileUtils {
         writeLines(file, null, lines, null, append);
     }
 
-
     /**
      * Writes the {@code toString()} value of each item in a collection to
-     * the specified {@code File} line by line.
+     * the specified {@link File} line by line.
      * The default VM encoding and the specified line ending will be used.
      *
      * @param file       the file to write to
@@ -3407,7 +3341,7 @@ public class FileUtils {
 
     /**
      * Writes the {@code toString()} value of each item in a collection to
-     * the specified {@code File} line by line.
+     * the specified {@link File} line by line.
      * The default VM encoding and the specified line ending will be used.
      *
      * @param file       the file to write to
@@ -3424,7 +3358,7 @@ public class FileUtils {
 
     /**
      * Writes the {@code toString()} value of each item in a collection to
-     * the specified {@code File} line by line.
+     * the specified {@link File} line by line.
      * The specified character encoding and the default line ending will be used.
      * <p>
      * NOTE: As from v1.3, the parent directories of the file will be created
@@ -3444,7 +3378,7 @@ public class FileUtils {
 
     /**
      * Writes the {@code toString()} value of each item in a collection to
-     * the specified {@code File} line by line, optionally appending.
+     * the specified {@link File} line by line, optionally appending.
      * The specified character encoding and the default line ending will be used.
      *
      * @param file     the file to write to
@@ -3462,7 +3396,7 @@ public class FileUtils {
 
     /**
      * Writes the {@code toString()} value of each item in a collection to
-     * the specified {@code File} line by line.
+     * the specified {@link File} line by line.
      * The specified character encoding and the line ending will be used.
      * <p>
      * NOTE: As from v1.3, the parent directories of the file will be created
@@ -3483,7 +3417,7 @@ public class FileUtils {
 
     /**
      * Writes the {@code toString()} value of each item in a collection to
-     * the specified {@code File} line by line.
+     * the specified {@link File} line by line.
      * The specified character encoding and the line ending will be used.
      *
      * @param file       the file to write to

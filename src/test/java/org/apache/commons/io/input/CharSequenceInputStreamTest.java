@@ -36,6 +36,8 @@ import org.junit.jupiter.api.Test;
 
 public class CharSequenceInputStreamTest {
 
+    private static final String UTF_16 = StandardCharsets.UTF_16.name();
+    private static final String UTF_8 = StandardCharsets.UTF_8.name();
     private static final String ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
     private static final String LARGE_TEST_STRING;
 
@@ -61,7 +63,7 @@ public class CharSequenceInputStreamTest {
         return Charsets.requiredCharsets().keySet();
     }
 
-private boolean isAvailabilityTestableForCharset(final String csName) {
+    private boolean isAvailabilityTestableForCharset(final String csName) {
         return Charset.forName(csName).canEncode()
                 && !"COMPOUND_TEXT".equalsIgnoreCase(csName) && !"x-COMPOUND_TEXT".equalsIgnoreCase(csName)
                 && !isOddBallLegacyCharsetThatDoesNotSupportFrenchCharacters(csName);
@@ -78,7 +80,7 @@ private boolean isAvailabilityTestableForCharset(final String csName) {
     public void testAvailable() throws Exception {
         for (final String csName : Charset.availableCharsets().keySet()) {
             // prevent java.lang.UnsupportedOperationException at sun.nio.cs.ext.ISO2022_CN.newEncoder.
-            // also try and avoid the following Effor on Continuum
+            // also try and avoid the following exception
 //            java.lang.UnsupportedOperationException: null
 //            at java.nio.CharBuffer.array(CharBuffer.java:940)
 //            at sun.nio.cs.ext.COMPOUND_TEXT_Encoder.encodeLoop(COMPOUND_TEXT_Encoder.java:75)
@@ -172,7 +174,7 @@ private boolean isAvailabilityTestableForCharset(final String csName) {
 
     @Test
     public void testBufferedRead_UTF8() throws IOException {
-        testBufferedRead(TEST_STRING, "UTF-8");
+        testBufferedRead(TEST_STRING, UTF_8);
     }
 
     private void testCharsetMismatchInfiniteLoop(final String csName) throws IOException {
@@ -195,26 +197,26 @@ private boolean isAvailabilityTestableForCharset(final String csName) {
     // This is because the initial read fills the buffer from the CharSequence
     // so data1 gets the first buffer full; data2 will get the next buffer full
     private void testIO_356(final int bufferSize, final int dataSize, final int readFirst, final String csName) throws Exception {
-        final CharSequenceInputStream is = new CharSequenceInputStream(ALPHABET, csName, bufferSize);
+        final byte[] data1;
+        final byte[] data2;
+        try (CharSequenceInputStream is = new CharSequenceInputStream(ALPHABET, csName, bufferSize)) {
+            for (int i = 0; i < readFirst; i++) {
+                final int ch = is.read();
+                assertNotEquals(-1, ch);
+            }
 
-        for (int i = 0; i < readFirst; i++) {
-            final int ch = is.read();
-            assertNotEquals(-1, ch);
+            is.mark(dataSize);
+
+            data1 = new byte[dataSize];
+            final int readCount1 = is.read(data1);
+            assertEquals(dataSize, readCount1);
+
+            is.reset(); // should allow data to be re-read
+
+            data2 = new byte[dataSize];
+            final int readCount2 = is.read(data2);
+            assertEquals(dataSize, readCount2);
         }
-
-        is.mark(dataSize);
-
-        final byte[] data1 = new byte[dataSize];
-        final int readCount1 = is.read(data1);
-        assertEquals(dataSize, readCount1);
-
-        is.reset(); // should allow data to be re-read
-
-        final byte[] data2 = new byte[dataSize];
-        final int readCount2 = is.read(data2);
-        assertEquals(dataSize, readCount2);
-
-        is.close();
 
         // data buffers should be identical
         assertArrayEquals(data1, data2, "bufferSize=" + bufferSize + " dataSize=" + dataSize);
@@ -222,37 +224,37 @@ private boolean isAvailabilityTestableForCharset(final String csName) {
 
     @Test
     public void testIO_356_B10_D10_S0_UTF16() throws Exception {
-        testIO_356(10, 10, 0, "UTF-16");
+        testIO_356(10, 10, 0, UTF_16);
     }
 
     @Test
     public void testIO_356_B10_D10_S0_UTF8() throws Exception {
-        testIO_356(10, 10, 0, "UTF-8");
+        testIO_356(10, 10, 0, UTF_8);
     }
 
     @Test
     public void testIO_356_B10_D10_S1_UTF8() throws Exception {
-        testIO_356(10, 10, 1, "UTF-8");
+        testIO_356(10, 10, 1, UTF_8);
     }
 
     @Test
     public void testIO_356_B10_D10_S2_UTF8() throws Exception {
-        testIO_356(10, 10, 2, "UTF-8");
+        testIO_356(10, 10, 2, UTF_8);
     }
 
     @Test
     public void testIO_356_B10_D13_S0_UTF8() throws Exception {
-        testIO_356(10, 13, 0, "UTF-8");
+        testIO_356(10, 13, 0, UTF_8);
     }
 
     @Test
     public void testIO_356_B10_D13_S1_UTF8() throws Exception {
-        testIO_356(10, 13, 1, "UTF-8");
+        testIO_356(10, 13, 1, UTF_8);
     }
 
     @Test
     public void testIO_356_B10_D20_S0_UTF8() throws Exception {
-        testIO_356(10, 20, 0, "UTF-8");
+        testIO_356(10, 20, 0, UTF_8);
     }
 
     private void testIO_356_Loop(final String csName, final int maxBytesPerChar) throws Exception {
@@ -284,7 +286,7 @@ private boolean isAvailabilityTestableForCharset(final String csName) {
 
     @Test
     public void testLargeBufferedRead_UTF8() throws IOException {
-        testBufferedRead(LARGE_TEST_STRING, "UTF-8");
+        testBufferedRead(LARGE_TEST_STRING, UTF_8);
     }
 
     @Test
@@ -296,7 +298,7 @@ private boolean isAvailabilityTestableForCharset(final String csName) {
 
     @Test
     public void testLargeSingleByteRead_UTF8() throws IOException {
-        testSingleByteRead(LARGE_TEST_STRING, "UTF-8");
+        testSingleByteRead(LARGE_TEST_STRING, UTF_8);
     }
 
     // This test is broken for charsets that don't create a single byte for each char
@@ -331,13 +333,29 @@ private boolean isAvailabilityTestableForCharset(final String csName) {
 
     @Test
     public void testMarkReset_UTF8() throws Exception {
-        testMarkReset("UTF-8");
+        testMarkReset(UTF_8);
     }
 
     @Test
     public void testMarkSupported() throws Exception {
-        try (InputStream r = new CharSequenceInputStream("test", "UTF-8")) {
+        try (InputStream r = new CharSequenceInputStream("test", UTF_8)) {
             assertTrue(r.markSupported());
+        }
+    }
+
+    @Test
+    public void testNullCharset() throws IOException {
+        try (CharSequenceInputStream in = new CharSequenceInputStream("A", (Charset) null)) {
+            IOUtils.toByteArray(in);
+            assertEquals(Charset.defaultCharset(), in.getCharsetEncoder().charset());
+        }
+    }
+
+    @Test
+    public void testNullCharsetName() throws IOException {
+        try (CharSequenceInputStream in = new CharSequenceInputStream("A", (String) null)) {
+            IOUtils.toByteArray(in);
+            assertEquals(Charset.defaultCharset(), in.getCharsetEncoder().charset());
         }
     }
 
@@ -350,7 +368,7 @@ private boolean isAvailabilityTestableForCharset(final String csName) {
 
     @Test
     public void testReadZero_EmptyString() throws Exception {
-        try (InputStream r = new CharSequenceInputStream("", "UTF-8")) {
+        try (InputStream r = new CharSequenceInputStream("", UTF_8)) {
             final byte[] bytes = new byte[30];
             assertEquals(0, r.read(bytes, 0, 0));
         }
@@ -385,12 +403,12 @@ private boolean isAvailabilityTestableForCharset(final String csName) {
 
     @Test
     public void testSingleByteRead_UTF16() throws IOException {
-        testSingleByteRead(TEST_STRING, "UTF-16");
+        testSingleByteRead(TEST_STRING, UTF_16);
     }
 
     @Test
     public void testSingleByteRead_UTF8() throws IOException {
-        testSingleByteRead(TEST_STRING, "UTF-8");
+        testSingleByteRead(TEST_STRING, UTF_8);
     }
 
     // This is broken for charsets that don't map each char to a byte
@@ -419,6 +437,6 @@ private boolean isAvailabilityTestableForCharset(final String csName) {
 
     @Test
     public void testSkip_UTF8() throws Exception {
-        testSkip("UTF-8");
+        testSkip(UTF_8);
     }
 }

@@ -36,10 +36,11 @@ import java.io.File;
  */
 @Deprecated
 public class FileCleaner {
+
     /**
      * The instance to use for the deprecated, static methods.
      */
-    static final FileCleaningTracker theInstance = new FileCleaningTracker();
+    private static final FileCleaningTracker INSTANCE = new FileCleaningTracker();
 
     /**
      * Call this method to cause the file cleaner thread to terminate when
@@ -66,7 +67,7 @@ public class FileCleaner {
      */
     @Deprecated
     public static synchronized void exitWhenFinished() {
-        theInstance.exitWhenFinished();
+        INSTANCE.exitWhenFinished();
     }
 
     /**
@@ -78,7 +79,7 @@ public class FileCleaner {
      * @return the singleton instance
      */
     public static FileCleaningTracker getInstance() {
-        return theInstance;
+        return INSTANCE;
     }
 
     /**
@@ -90,7 +91,7 @@ public class FileCleaner {
      */
     @Deprecated
     public static int getTrackCount() {
-        return theInstance.getTrackCount();
+        return INSTANCE.getTrackCount();
     }
 
     /**
@@ -105,7 +106,7 @@ public class FileCleaner {
      */
     @Deprecated
     public static void track(final File file, final Object marker) {
-        theInstance.track(file, marker);
+        INSTANCE.track(file, marker);
     }
 
     /**
@@ -121,7 +122,7 @@ public class FileCleaner {
      */
     @Deprecated
     public static void track(final File file, final Object marker, final FileDeleteStrategy deleteStrategy) {
-        theInstance.track(file, marker, deleteStrategy);
+        INSTANCE.track(file, marker, deleteStrategy);
     }
 
     /**
@@ -136,7 +137,7 @@ public class FileCleaner {
      */
     @Deprecated
     public static void track(final String path, final Object marker) {
-        theInstance.track(path, marker);
+        INSTANCE.track(path, marker);
     }
 
     /**
@@ -152,6 +153,6 @@ public class FileCleaner {
      */
     @Deprecated
     public static void track(final String path, final Object marker, final FileDeleteStrategy deleteStrategy) {
-        theInstance.track(path, marker, deleteStrategy);
+        INSTANCE.track(path, marker, deleteStrategy);
     }
 }

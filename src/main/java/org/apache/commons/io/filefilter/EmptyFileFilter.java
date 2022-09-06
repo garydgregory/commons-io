@@ -17,7 +17,6 @@
 package org.apache.commons.io.filefilter;
 
 import java.io.File;
-import java.io.IOException;
 import java.io.Serializable;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
@@ -30,7 +29,7 @@ import org.apache.commons.io.IOUtils;
 /**
  * This filter accepts files or directories that are empty.
  * <p>
- * If the {@code File} is a directory it checks that it contains no files.
+ * If the {@link File} is a directory it checks that it contains no files.
  * </p>
  * <p>
  * Example, showing how to print out a list of the current directory's empty files/directories:
@@ -117,16 +116,14 @@ public class EmptyFileFilter extends AbstractFileFilter implements Serializable 
      */
     @Override
     public FileVisitResult accept(final Path file, final BasicFileAttributes attributes) {
-        try {
+        return get(() -> {
             if (Files.isDirectory(file)) {
                 try (Stream<Path> stream = Files.list(file)) {
                     return toFileVisitResult(!stream.findFirst().isPresent());
                 }
             }
             return toFileVisitResult(Files.size(file) == 0);
-        } catch (final IOException e) {
-            return handle(e);
-        }
+        });
     }
 
 }
