@@ -21,7 +21,9 @@ import static org.apache.commons.io.file.CounterAssertions.assertCounts;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.io.IOException;
+import java.nio.file.Path;
 
+import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
@@ -40,11 +42,9 @@ class CountingPathVisitorTest extends TestArguments {
      */
     @ParameterizedTest
     @MethodSource("countingPathVisitors")
-    void testCountEmptyFolder(final CountingPathVisitor visitor) throws IOException {
+    void testCountEmptyFolder(final CountingPathVisitor visitor, @TempDir final Path tempDir) throws IOException {
         checkZeroCounts(visitor);
-        try (TempDirectory tempDir = TempDirectory.create(getClass().getCanonicalName())) {
-            assertCounts(1, 0, 0, PathUtils.visitFileTree(visitor, tempDir.get()));
-        }
+        assertCounts(1, 0, 0, PathUtils.visitFileTree(visitor, tempDir));
     }
 
     /**

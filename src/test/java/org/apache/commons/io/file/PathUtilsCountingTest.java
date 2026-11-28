@@ -20,10 +20,12 @@ package org.apache.commons.io.file;
 import static org.apache.commons.io.file.CounterAssertions.assertCounts;
 
 import java.io.IOException;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 
 import org.apache.commons.io.file.Counters.PathCounters;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /**
  * Tests {@link PathUtils}.
@@ -34,11 +36,9 @@ class PathUtilsCountingTest {
      * Tests an empty folder.
      */
     @Test
-    void testCountEmptyFolder() throws IOException {
-        try (TempDirectory tempDir = TempDirectory.create(getClass().getCanonicalName())) {
-            final PathCounters pathCounts = PathUtils.countDirectory(tempDir.get());
-            assertCounts(1, 0, 0, pathCounts);
-        }
+    void testCountEmptyFolder(@TempDir final Path tempDir) throws IOException {
+        final PathCounters pathCounts = PathUtils.countDirectory(tempDir);
+        assertCounts(1, 0, 0, pathCounts);
     }
 
     /**

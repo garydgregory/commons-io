@@ -25,6 +25,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /**
  * Tests {@link PathUtils}.
@@ -40,20 +41,16 @@ class PathUtilsIsEmptyTest {
             .get("src/test/resources/org/apache/commons/io/dirs-1-file-size-1/file-size-1.bin");
 
     @Test
-    void testIsEmpty() throws IOException {
+    void testIsEmpty(@TempDir final Path tempDir) throws IOException {
         assertTrue(PathUtils.isEmpty(FILE_SIZE_0));
         assertFalse(PathUtils.isEmpty(FILE_SIZE_1));
-        try (TempDirectory tempDir = TempDirectory.create(getClass().getCanonicalName())) {
-            assertTrue(PathUtils.isEmpty(tempDir.get()));
-        }
+        assertTrue(PathUtils.isEmpty(tempDir));
         assertFalse(PathUtils.isEmpty(DIR_SIZE_1));
     }
 
     @Test
-    void testIsEmptyDirectory() throws IOException {
-        try (TempDirectory tempDir = TempDirectory.create(getClass().getCanonicalName())) {
-            assertTrue(PathUtils.isEmptyDirectory(tempDir.get()));
-        }
+    void testIsEmptyDirectory(@TempDir final Path tempDir) throws IOException {
+        assertTrue(PathUtils.isEmptyDirectory(tempDir));
         assertFalse(PathUtils.isEmptyDirectory(DIR_SIZE_1));
     }
 

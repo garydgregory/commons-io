@@ -54,6 +54,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.SystemProperties;
 import org.apache.commons.lang3.SystemUtils;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -392,19 +393,17 @@ class PathUtilsTest extends AbstractTempDirTest {
     }
 
     @Test
-    void testIsDirectory() throws IOException {
+    void testIsDirectory(@TempDir final Path tempDir) throws IOException {
         assertFalse(PathUtils.isDirectory(null));
 
         assertTrue(PathUtils.isDirectory(tempDirPath));
         try (TempFile testFile1 = TempFile.create(tempDirPath, "prefix", null)) {
             assertFalse(PathUtils.isDirectory(testFile1.get()));
 
-            Path ref = null;
-            try (TempDirectory tempDir = TempDirectory.create(getClass().getCanonicalName())) {
-                ref = tempDir.get();
-                assertTrue(PathUtils.isDirectory(tempDir.get()));
-            }
-            assertFalse(PathUtils.isDirectory(ref));
+            final Path directory = Files.createDirectory(tempDir.resolve("directory"));
+            assertTrue(PathUtils.isDirectory(directory));
+            Files.delete(directory);
+            assertFalse(PathUtils.isDirectory(directory));
         }
     }
 

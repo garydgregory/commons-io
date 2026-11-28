@@ -85,7 +85,6 @@ import org.apache.commons.io.file.AbstractTempDirTest;
 import org.apache.commons.io.file.Counters.PathCounters;
 import org.apache.commons.io.file.NioFileSystem;
 import org.apache.commons.io.file.PathUtils;
-import org.apache.commons.io.file.TempDirectory;
 import org.apache.commons.io.file.TempFile;
 import org.apache.commons.io.filefilter.IOFileFilter;
 import org.apache.commons.io.filefilter.NameFileFilter;
@@ -1703,41 +1702,53 @@ class FileUtilsTest extends AbstractTempDirTest {
      */
     @Test
     @EnabledOnOs(value = OS.MAC)
-    void testForceDeleteReadOnlyDirectory() throws Exception {
-        try (TempDirectory destDir = TempDirectory.create("dir-");
-                TempFile destination = TempFile.create(destDir, "test-", ".txt")) {
+    void testForceDeleteReadOnlyDirectory(@TempDir final Path tempDir) throws Exception {
+        final Path readOnlyFileDir = Files.createDirectory(tempDir.resolve("read-only-file"));
+        try (TempFile destination = TempFile.create(readOnlyFileDir, "test-", ".txt")) {
             // sanity check structure
-            assertTrue(Files.isDirectory(destDir.get()));
-            assertEquals(destDir.get(), destination.get().getParent());
+            assertTrue(Files.isDirectory(readOnlyFileDir));
+            assertEquals(readOnlyFileDir, destination.get().getParent());
             // sanity check attributes
             final File file = destination.toFile();
-            assertTrue(file.setReadOnly());
-            assertTrue(file.canRead());
-            assertFalse(file.canWrite());
-            // sanity check that File.delete() deletes a read-only directory.
-            final PathCounters delete = destDir.delete();
-            assertEquals(1, delete.getDirectoryCounter().get());
-            assertEquals(1, delete.getFileCounter().get());
-            assertFalse(file.exists());
-            assertFalse(destDir.exists());
+            try {
+                assertTrue(file.setReadOnly());
+                assertTrue(file.canRead());
+                assertFalse(file.canWrite());
+                // sanity check that PathUtils.delete() deletes a directory containing a read-only file.
+                final PathCounters delete = PathUtils.delete(readOnlyFileDir);
+                assertEquals(1, delete.getDirectoryCounter().get());
+                assertEquals(1, delete.getFileCounter().get());
+                assertFalse(file.exists());
+                assertFalse(Files.exists(readOnlyFileDir));
+            } finally {
+                if (file.exists()) {
+                    assertTrue(file.setWritable(true));
+                }
+            }
         }
-        try (TempDirectory destDir = TempDirectory.create("dir-");
-                TempFile destination = TempFile.create(destDir, "test-", ".txt")) {
+        final Path readOnlyDir = Files.createDirectory(tempDir.resolve("read-only-directory"));
+        try (TempFile destination = TempFile.create(readOnlyDir, "test-", ".txt")) {
             // sanity check structure
-            assertTrue(Files.isDirectory(destDir.get()));
-            assertEquals(destDir.get(), destination.get().getParent());
+            assertTrue(Files.isDirectory(readOnlyDir));
+            assertEquals(readOnlyDir, destination.get().getParent());
             // sanity check attributes
-            final File dir = destDir.toFile();
-            // real test
-            assertTrue(dir.setReadOnly());
-            assertTrue(dir.canRead());
-            assertFalse(dir.canWrite());
-            assertTrue(dir.exists(), "File doesn't exist to delete");
-            // TODO Passes on macOS, fails on Linux and Windows with AccessDeniedException.
-            FileUtils.forceDelete(dir);
-            assertFalse(destination.exists(), "Check deletion");
-            assertFalse(dir.exists(), "Check deletion");
-            assertFalse(destDir.exists(), "Check deletion");
+            final File dir = readOnlyDir.toFile();
+            try {
+                // real test
+                assertTrue(dir.setReadOnly());
+                assertTrue(dir.canRead());
+                assertFalse(dir.canWrite());
+                assertTrue(dir.exists(), "File doesn't exist to delete");
+                // TODO Passes on macOS, fails on Linux and Windows with AccessDeniedException.
+                FileUtils.forceDelete(dir);
+                assertFalse(destination.exists(), "Check deletion");
+                assertFalse(dir.exists(), "Check deletion");
+                assertFalse(Files.exists(readOnlyDir), "Check deletion");
+            } finally {
+                if (dir.exists()) {
+                    assertTrue(dir.setWritable(true));
+                }
+            }
         }
     }
 
@@ -1791,45 +1802,57 @@ class FileUtilsTest extends AbstractTempDirTest {
      */
     @Test
     @EnabledOnOs(value = OS.MAC)
-    void testForceDeleteUnwritableDirectory() throws Exception {
-        try (TempDirectory destDir = TempDirectory.create("dir-");
-                TempFile file = TempFile.create(destDir, "test-", ".txt")) {
+    void testForceDeleteUnwritableDirectory(@TempDir final Path tempDir) throws Exception {
+        final Path unwritableDir = Files.createDirectory(tempDir.resolve("unwritable-directory"));
+        try (TempFile file = TempFile.create(unwritableDir, "test-", ".txt")) {
             // sanity check structure
-            assertTrue(Files.isDirectory(destDir.get()));
-            assertEquals(destDir.get(), file.get().getParent());
+            assertTrue(Files.isDirectory(unwritableDir));
+            assertEquals(unwritableDir, file.get().getParent());
             // sanity check attributes
-            final File dir = destDir.toFile();
-            assertTrue(dir.canWrite());
-            // Windows: setWritable(false) returns false.
-            assertTrue(dir.setWritable(false), () -> "setWritable(false) on " + dir);
-            assertFalse(dir.canWrite());
-            assertTrue(dir.canRead());
-            // sanity check that File.delete() cannot delete non-empty directories.
-            assertFalse(dir.delete());
-            // delete underlying file.
-            assertFalse(file.toFile().delete());
-            // reset attribute so we can delete file and auto-close/delete dir.
-            assertTrue(dir.setWritable(true));
-            assertTrue(file.toFile().delete());
+            final File dir = unwritableDir.toFile();
+            try {
+                assertTrue(dir.canWrite());
+                // Windows: setWritable(false) returns false.
+                assertTrue(dir.setWritable(false), () -> "setWritable(false) on " + dir);
+                assertFalse(dir.canWrite());
+                assertTrue(dir.canRead());
+                // sanity check that File.delete() cannot delete non-empty directories.
+                assertFalse(dir.delete());
+                // delete underlying file.
+                assertFalse(file.toFile().delete());
+                // reset attribute so we can delete the file.
+                assertTrue(dir.setWritable(true));
+                assertTrue(file.toFile().delete());
+            } finally {
+                if (dir.exists()) {
+                    assertTrue(dir.setWritable(true));
+                }
+            }
         }
-        try (TempDirectory destDir = TempDirectory.create("dir-");
-                TempFile file = TempFile.create(destDir, "test-", ".txt")) {
+        final Path forceDeleteDir = Files.createDirectory(tempDir.resolve("force-delete-directory"));
+        try (TempFile file = TempFile.create(forceDeleteDir, "test-", ".txt")) {
             // sanity check structure
-            assertTrue(Files.isDirectory(destDir.get()));
-            assertEquals(destDir.get(), file.get().getParent());
+            assertTrue(Files.isDirectory(forceDeleteDir));
+            assertEquals(forceDeleteDir, file.get().getParent());
             // sanity check attributes
-            final File dir = destDir.toFile();
-            assertTrue(dir.canWrite());
-            assertTrue(dir.setWritable(false));
-            assertFalse(dir.canWrite());
-            assertTrue(dir.canRead());
-            // sanity check that File.delete() cannot delete non-empty directories.
-            assertFalse(dir.delete());
-            // test
-            // Linux: Fails with AccessDeniedException.
-            FileUtils.forceDelete(dir);
-            assertFalse(file.exists());
-            assertFalse(dir.exists());
+            final File dir = forceDeleteDir.toFile();
+            try {
+                assertTrue(dir.canWrite());
+                assertTrue(dir.setWritable(false));
+                assertFalse(dir.canWrite());
+                assertTrue(dir.canRead());
+                // sanity check that File.delete() cannot delete non-empty directories.
+                assertFalse(dir.delete());
+                // test
+                // Linux: Fails with AccessDeniedException.
+                FileUtils.forceDelete(dir);
+                assertFalse(file.exists());
+                assertFalse(dir.exists());
+            } finally {
+                if (dir.exists()) {
+                    assertTrue(dir.setWritable(true));
+                }
+            }
         }
     }
 
@@ -1996,26 +2019,22 @@ class FileUtilsTest extends AbstractTempDirTest {
     }
 
     @Test
-    void testIsDirectory() throws IOException {
+    void testIsDirectory(@TempDir final Path tempDir) throws IOException {
         assertFalse(FileUtils.isDirectory(null));
 
         assertTrue(FileUtils.isDirectory(tempDirFile));
         assertFalse(FileUtils.isDirectory(testFile1));
 
-        final File tempDirAsFile;
-        try (TempDirectory tempDir = TempDirectory.create(getClass().getCanonicalName())) {
-            tempDirAsFile = tempDir.toFile();
-            assertTrue(FileUtils.isDirectory(tempDirAsFile));
-        }
+        final Path directory = Files.createDirectory(tempDir.resolve("directory"));
+        final File tempDirAsFile = directory.toFile();
+        assertTrue(FileUtils.isDirectory(tempDirAsFile));
+        Files.delete(directory);
         assertFalse(FileUtils.isDirectory(tempDirAsFile));
     }
 
     @Test
-    void testIsEmptyDirectory() throws IOException {
-        try (TempDirectory tempDir = TempDirectory.create(getClass().getCanonicalName())) {
-            final File tempDirAsFile = tempDir.toFile();
-            assertTrue(FileUtils.isEmptyDirectory(tempDirAsFile));
-        }
+    void testIsEmptyDirectory(@TempDir final Path tempDir) throws IOException {
+        assertTrue(FileUtils.isEmptyDirectory(tempDir.toFile()));
         assertFalse(FileUtils.isEmptyDirectory(DIR_SIZE_1.toFile()));
     }
 
