@@ -31,13 +31,14 @@ import java.io.Reader;
 import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.commons.io.FileUtils;
-import org.apache.commons.io.file.TempFile;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -51,6 +52,9 @@ class BoundedReaderTest {
     private static final String STRING_END_NO_EOL = "0\n1\n2";
 
     private static final String STRING_END_EOL = "0\n1\n2\n";
+
+    @TempDir
+    Path tempDir;
 
     private final Reader bufReader1 = new BufferedReader(new StringReader("01234567890"));
 
@@ -83,12 +87,11 @@ class BoundedReaderTest {
     }
 
     void testLineNumberReaderAndFileReaderLastLine(final String data) throws IOException {
-        try (TempFile path = TempFile.create(getClass().getSimpleName(), ".txt")) {
-            final File file = path.toFile();
-            FileUtils.write(file, data, StandardCharsets.ISO_8859_1);
-            try (Reader source = Files.newBufferedReader(file.toPath())) {
-                testLineNumberReader(source);
-            }
+        final Path path = Files.createTempFile(tempDir, getClass().getSimpleName(), ".txt");
+        final File file = path.toFile();
+        FileUtils.write(file, data, StandardCharsets.ISO_8859_1);
+        try (Reader source = Files.newBufferedReader(file.toPath())) {
+            testLineNumberReader(source);
         }
     }
 

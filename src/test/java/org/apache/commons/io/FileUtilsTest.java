@@ -85,7 +85,6 @@ import org.apache.commons.io.file.AbstractTempDirTest;
 import org.apache.commons.io.file.Counters.PathCounters;
 import org.apache.commons.io.file.NioFileSystem;
 import org.apache.commons.io.file.PathUtils;
-import org.apache.commons.io.file.TempFile;
 import org.apache.commons.io.filefilter.IOFileFilter;
 import org.apache.commons.io.filefilter.NameFileFilter;
 import org.apache.commons.io.filefilter.WildcardFileFilter;
@@ -1704,78 +1703,72 @@ class FileUtilsTest extends AbstractTempDirTest {
     @EnabledOnOs(value = OS.MAC)
     void testForceDeleteReadOnlyDirectory(@TempDir final Path tempDir) throws Exception {
         final Path readOnlyFileDir = Files.createDirectory(tempDir.resolve("read-only-file"));
-        try (TempFile destination = TempFile.create(readOnlyFileDir, "test-", ".txt")) {
-            // sanity check structure
-            assertTrue(Files.isDirectory(readOnlyFileDir));
-            assertEquals(readOnlyFileDir, destination.get().getParent());
-            // sanity check attributes
-            final File file = destination.toFile();
-            try {
-                assertTrue(file.setReadOnly());
-                assertTrue(file.canRead());
-                assertFalse(file.canWrite());
-                // sanity check that PathUtils.delete() deletes a directory containing a read-only file.
-                final PathCounters delete = PathUtils.delete(readOnlyFileDir);
-                assertEquals(1, delete.getDirectoryCounter().get());
-                assertEquals(1, delete.getFileCounter().get());
-                assertFalse(file.exists());
-                assertFalse(Files.exists(readOnlyFileDir));
-            } finally {
-                if (file.exists()) {
-                    assertTrue(file.setWritable(true));
-                }
+        final Path readOnlyFile = Files.createTempFile(readOnlyFileDir, "test-", ".txt");
+        // sanity check structure
+        assertTrue(Files.isDirectory(readOnlyFileDir));
+        assertEquals(readOnlyFileDir, readOnlyFile.getParent());
+        // sanity check attributes
+        final File file = readOnlyFile.toFile();
+        try {
+            assertTrue(file.setReadOnly());
+            assertTrue(file.canRead());
+            assertFalse(file.canWrite());
+            // sanity check that PathUtils.delete() deletes a directory containing a read-only file.
+            final PathCounters delete = PathUtils.delete(readOnlyFileDir);
+            assertEquals(1, delete.getDirectoryCounter().get());
+            assertEquals(1, delete.getFileCounter().get());
+            assertFalse(file.exists());
+            assertFalse(Files.exists(readOnlyFileDir));
+        } finally {
+            if (file.exists()) {
+                assertTrue(file.setWritable(true));
             }
         }
         final Path readOnlyDir = Files.createDirectory(tempDir.resolve("read-only-directory"));
-        try (TempFile destination = TempFile.create(readOnlyDir, "test-", ".txt")) {
-            // sanity check structure
-            assertTrue(Files.isDirectory(readOnlyDir));
-            assertEquals(readOnlyDir, destination.get().getParent());
-            // sanity check attributes
-            final File dir = readOnlyDir.toFile();
-            try {
-                // real test
-                assertTrue(dir.setReadOnly());
-                assertTrue(dir.canRead());
-                assertFalse(dir.canWrite());
-                assertTrue(dir.exists(), "File doesn't exist to delete");
-                // TODO Passes on macOS, fails on Linux and Windows with AccessDeniedException.
-                FileUtils.forceDelete(dir);
-                assertFalse(destination.exists(), "Check deletion");
-                assertFalse(dir.exists(), "Check deletion");
-                assertFalse(Files.exists(readOnlyDir), "Check deletion");
-            } finally {
-                if (dir.exists()) {
-                    assertTrue(dir.setWritable(true));
-                }
+        final Path readOnlyDirFile = Files.createTempFile(readOnlyDir, "test-", ".txt");
+        // sanity check structure
+        assertTrue(Files.isDirectory(readOnlyDir));
+        assertEquals(readOnlyDir, readOnlyDirFile.getParent());
+        // sanity check attributes
+        final File dir = readOnlyDir.toFile();
+        try {
+            // real test
+            assertTrue(dir.setReadOnly());
+            assertTrue(dir.canRead());
+            assertFalse(dir.canWrite());
+            assertTrue(dir.exists(), "File doesn't exist to delete");
+            // TODO Passes on macOS, fails on Linux and Windows with AccessDeniedException.
+            FileUtils.forceDelete(dir);
+            assertFalse(Files.exists(readOnlyDirFile), "Check deletion");
+            assertFalse(dir.exists(), "Check deletion");
+            assertFalse(Files.exists(readOnlyDir), "Check deletion");
+        } finally {
+            if (dir.exists()) {
+                assertTrue(dir.setWritable(true));
             }
         }
     }
 
     @Test
     void testForceDeleteReadOnlyFile() throws Exception {
-        try (TempFile destination = TempFile.create("test-", ".txt")) {
-            final File file = destination.toFile();
-            assertTrue(file.setReadOnly(), "Setting file read-only successful");
-            assertTrue(file.canRead(), "File must be readable");
-            assertFalse(file.canWrite(), "File must not be writable");
-            assertTrue(file.exists(), "File doesn't exist to delete");
-            // Since JDK 25 on Windows, File.delete() refuses to remove files
-            // with the DOS readonly bit set (JDK-8355954).
-            // We clear the bit here for consistency across JDK versions.
-            setDosReadOnly(file.toPath(), false);
-            assertTrue(file.delete(), "File.delete() must delete read-only file");
-        }
-        try (TempFile destination = TempFile.create("test-", ".txt")) {
-            final File file = destination.toFile();
-            // real test
-            assertTrue(file.setReadOnly(), "Setting file read-only successful");
-            assertTrue(file.canRead(), "File must be readable");
-            assertFalse(file.canWrite(), "File must not be writable");
-            assertTrue(file.exists(), "File doesn't exist to delete");
-            FileUtils.forceDelete(file);
-            assertFalse(file.exists(), "FileUtils.forceDelete() must delete read-only file");
-        }
+        final File readOnlyFile = Files.createTempFile(tempDirPath, "test-", ".txt").toFile();
+        assertTrue(readOnlyFile.setReadOnly(), "Setting file read-only successful");
+        assertTrue(readOnlyFile.canRead(), "File must be readable");
+        assertFalse(readOnlyFile.canWrite(), "File must not be writable");
+        assertTrue(readOnlyFile.exists(), "File doesn't exist to delete");
+        // Since JDK 25 on Windows, File.delete() refuses to remove files
+        // with the DOS readonly bit set (JDK-8355954).
+        // We clear the bit here for consistency across JDK versions.
+        setDosReadOnly(readOnlyFile.toPath(), false);
+        assertTrue(readOnlyFile.delete(), "File.delete() must delete read-only file");
+        final File forceDeleteFile = Files.createTempFile(tempDirPath, "test-", ".txt").toFile();
+        // real test
+        assertTrue(forceDeleteFile.setReadOnly(), "Setting file read-only successful");
+        assertTrue(forceDeleteFile.canRead(), "File must be readable");
+        assertFalse(forceDeleteFile.canWrite(), "File must not be writable");
+        assertTrue(forceDeleteFile.exists(), "File doesn't exist to delete");
+        FileUtils.forceDelete(forceDeleteFile);
+        assertFalse(forceDeleteFile.exists(), "FileUtils.forceDelete() must delete read-only file");
     }
 
     @Test
@@ -1804,84 +1797,78 @@ class FileUtilsTest extends AbstractTempDirTest {
     @EnabledOnOs(value = OS.MAC)
     void testForceDeleteUnwritableDirectory(@TempDir final Path tempDir) throws Exception {
         final Path unwritableDir = Files.createDirectory(tempDir.resolve("unwritable-directory"));
-        try (TempFile file = TempFile.create(unwritableDir, "test-", ".txt")) {
-            // sanity check structure
-            assertTrue(Files.isDirectory(unwritableDir));
-            assertEquals(unwritableDir, file.get().getParent());
-            // sanity check attributes
-            final File dir = unwritableDir.toFile();
-            try {
-                assertTrue(dir.canWrite());
-                // Windows: setWritable(false) returns false.
-                assertTrue(dir.setWritable(false), () -> "setWritable(false) on " + dir);
-                assertFalse(dir.canWrite());
-                assertTrue(dir.canRead());
-                // sanity check that File.delete() cannot delete non-empty directories.
-                assertFalse(dir.delete());
-                // delete underlying file.
-                assertFalse(file.toFile().delete());
-                // reset attribute so we can delete the file.
-                assertTrue(dir.setWritable(true));
-                assertTrue(file.toFile().delete());
-            } finally {
-                if (dir.exists()) {
-                    assertTrue(dir.setWritable(true));
-                }
+        final Path unwritableFile = Files.createTempFile(unwritableDir, "test-", ".txt");
+        // sanity check structure
+        assertTrue(Files.isDirectory(unwritableDir));
+        assertEquals(unwritableDir, unwritableFile.getParent());
+        // sanity check attributes
+        final File unwritableDirectory = unwritableDir.toFile();
+        try {
+            assertTrue(unwritableDirectory.canWrite());
+            // Windows: setWritable(false) returns false.
+            assertTrue(unwritableDirectory.setWritable(false), () -> "setWritable(false) on " + unwritableDirectory);
+            assertFalse(unwritableDirectory.canWrite());
+            assertTrue(unwritableDirectory.canRead());
+            // sanity check that File.delete() cannot delete non-empty directories.
+            assertFalse(unwritableDirectory.delete());
+            // delete underlying file.
+            assertFalse(unwritableFile.toFile().delete());
+            // reset attribute so we can delete the file.
+            assertTrue(unwritableDirectory.setWritable(true));
+            assertTrue(unwritableFile.toFile().delete());
+        } finally {
+            if (unwritableDirectory.exists()) {
+                assertTrue(unwritableDirectory.setWritable(true));
             }
         }
         final Path forceDeleteDir = Files.createDirectory(tempDir.resolve("force-delete-directory"));
-        try (TempFile file = TempFile.create(forceDeleteDir, "test-", ".txt")) {
-            // sanity check structure
-            assertTrue(Files.isDirectory(forceDeleteDir));
-            assertEquals(forceDeleteDir, file.get().getParent());
-            // sanity check attributes
-            final File dir = forceDeleteDir.toFile();
-            try {
-                assertTrue(dir.canWrite());
-                assertTrue(dir.setWritable(false));
-                assertFalse(dir.canWrite());
-                assertTrue(dir.canRead());
-                // sanity check that File.delete() cannot delete non-empty directories.
-                assertFalse(dir.delete());
-                // test
-                // Linux: Fails with AccessDeniedException.
-                FileUtils.forceDelete(dir);
-                assertFalse(file.exists());
-                assertFalse(dir.exists());
-            } finally {
-                if (dir.exists()) {
-                    assertTrue(dir.setWritable(true));
-                }
+        final Path forceDeleteFile = Files.createTempFile(forceDeleteDir, "test-", ".txt");
+        // sanity check structure
+        assertTrue(Files.isDirectory(forceDeleteDir));
+        assertEquals(forceDeleteDir, forceDeleteFile.getParent());
+        // sanity check attributes
+        final File forceDeleteDirectory = forceDeleteDir.toFile();
+        try {
+            assertTrue(forceDeleteDirectory.canWrite());
+            assertTrue(forceDeleteDirectory.setWritable(false));
+            assertFalse(forceDeleteDirectory.canWrite());
+            assertTrue(forceDeleteDirectory.canRead());
+            // sanity check that File.delete() cannot delete non-empty directories.
+            assertFalse(forceDeleteDirectory.delete());
+            // test
+            // Linux: Fails with AccessDeniedException.
+            FileUtils.forceDelete(forceDeleteDirectory);
+            assertFalse(Files.exists(forceDeleteFile));
+            assertFalse(forceDeleteDirectory.exists());
+        } finally {
+            if (forceDeleteDirectory.exists()) {
+                assertTrue(forceDeleteDirectory.setWritable(true));
             }
         }
     }
 
     @Test
     void testForceDeleteUnwritableFile() throws Exception {
-        try (TempFile destination = TempFile.create("test-", ".txt")) {
-            final File file = destination.toFile();
-            assertTrue(file.canWrite(), "File must be writable");
-            assertTrue(file.setWritable(false), "Setting file unwritable successful");
-            assertFalse(file.canWrite(), "File must not be writable");
-            assertTrue(file.canRead(), "File must be readable");
-            assertTrue(file.exists(), "File must exist to delete");
-            // Since JDK 25 on Windows, File.delete() refuses to remove files
-            // with the DOS readonly bit set (JDK-8355954).
-            // We clear the bit here for consistency across JDK versions.
-            setDosReadOnly(file.toPath(), false);
-            assertTrue(file.delete(), "File.delete() must delete unwritable file");
-        }
-        try (TempFile destination = TempFile.create("test-", ".txt")) {
-            final File file = destination.toFile();
-            // real test
-            assertTrue(file.canWrite(), "File must be writable");
-            assertTrue(file.setWritable(false), "Setting file unwritable successful");
-            assertFalse(file.canWrite(), "File must not be writable");
-            assertTrue(file.canRead(), "File must be readable");
-            assertTrue(file.exists(), "File must exist to delete");
-            FileUtils.forceDelete(file);
-            assertFalse(file.exists(), "FileUtils.forceDelete() must delete unwritable file");
-        }
+        final File unwritableFile = Files.createTempFile(tempDirPath, "test-", ".txt").toFile();
+        assertTrue(unwritableFile.canWrite(), "File must be writable");
+        assertTrue(unwritableFile.setWritable(false), "Setting file unwritable successful");
+        assertFalse(unwritableFile.canWrite(), "File must not be writable");
+        assertTrue(unwritableFile.canRead(), "File must be readable");
+        assertTrue(unwritableFile.exists(), "File must exist to delete");
+        // Since JDK 25 on Windows, File.delete() refuses to remove files
+        // with the DOS readonly bit set (JDK-8355954).
+        // We clear the bit here for consistency across JDK versions.
+        setDosReadOnly(unwritableFile.toPath(), false);
+        assertTrue(unwritableFile.delete(), "File.delete() must delete unwritable file");
+        final File forceDeleteFile = Files.createTempFile(tempDirPath, "test-", ".txt").toFile();
+        // real test
+        assertTrue(forceDeleteFile.canWrite(), "File must be writable");
+        assertTrue(forceDeleteFile.setWritable(false), "Setting file unwritable successful");
+        assertFalse(forceDeleteFile.canWrite(), "File must not be writable");
+        assertTrue(forceDeleteFile.canRead(), "File must be readable");
+        assertTrue(forceDeleteFile.exists(), "File must exist to delete");
+        FileUtils.forceDelete(forceDeleteFile);
+        assertFalse(forceDeleteFile.exists(), "FileUtils.forceDelete() must delete unwritable file");
     }
 
     @Test

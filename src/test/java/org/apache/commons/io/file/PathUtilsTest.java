@@ -397,14 +397,13 @@ class PathUtilsTest extends AbstractTempDirTest {
         assertFalse(PathUtils.isDirectory(null));
 
         assertTrue(PathUtils.isDirectory(tempDirPath));
-        try (TempFile testFile1 = TempFile.create(tempDirPath, "prefix", null)) {
-            assertFalse(PathUtils.isDirectory(testFile1.get()));
+        final Path testFile1 = Files.createTempFile(tempDirPath, "prefix", null);
+        assertFalse(PathUtils.isDirectory(testFile1));
 
-            final Path directory = Files.createDirectory(tempDir.resolve("directory"));
-            assertTrue(PathUtils.isDirectory(directory));
-            Files.delete(directory);
-            assertFalse(PathUtils.isDirectory(directory));
-        }
+        final Path directory = Files.createDirectory(tempDir.resolve("directory"));
+        assertTrue(PathUtils.isDirectory(directory));
+        Files.delete(directory);
+        assertFalse(PathUtils.isDirectory(directory));
     }
 
     @Test
@@ -430,12 +429,11 @@ class PathUtilsTest extends AbstractTempDirTest {
         assertFalse(PathUtils.isRegularFile(null));
 
         assertFalse(PathUtils.isRegularFile(tempDirPath));
-        try (TempFile testFile1 = TempFile.create(tempDirPath, "prefix", null)) {
-            assertTrue(PathUtils.isRegularFile(testFile1.get()));
+        final Path testFile1 = Files.createTempFile(tempDirPath, "prefix", null);
+        assertTrue(PathUtils.isRegularFile(testFile1));
 
-            Files.delete(testFile1.get());
-            assertFalse(PathUtils.isRegularFile(testFile1.get()));
-        }
+        Files.delete(testFile1);
+        assertFalse(PathUtils.isRegularFile(testFile1));
     }
 
     @Test

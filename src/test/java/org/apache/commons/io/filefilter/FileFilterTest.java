@@ -49,7 +49,6 @@ import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOCase;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.io.file.PathUtils;
-import org.apache.commons.io.file.TempFile;
 import org.apache.commons.io.test.TestUtils;
 import org.apache.commons.lang3.SystemUtils;
 import org.junit.jupiter.api.Test;
@@ -199,22 +198,21 @@ class FileFilterTest extends AbstractFilterTest {
     @Test
     void testCanExecute() throws Exception {
         assumeTrue(SystemUtils.IS_OS_WINDOWS);
-        try (TempFile executablePath = TempFile.create(getClass().getSimpleName(), null)) {
-            final File executableFile = executablePath.toFile();
-            try (BufferedOutputStream output = new BufferedOutputStream(Files.newOutputStream(executablePath.get()))) {
-                TestUtils.generateTestData(output, 32);
-            }
-            assertTrue(executableFile.setExecutable(true));
-            assertFiltering(CanExecuteFileFilter.CAN_EXECUTE, executablePath.get(), true);
-            assertFiltering(CanExecuteFileFilter.CAN_EXECUTE, (Path) null, false);
-            assertFiltering(CanExecuteFileFilter.CAN_EXECUTE, executableFile, true);
-            assertFiltering(CanExecuteFileFilter.CAN_EXECUTE, (File) null, false);
-            executableFile.setExecutable(false);
-            assertFiltering(CanExecuteFileFilter.CANNOT_EXECUTE, executablePath.get(), false);
-            assertFiltering(CanExecuteFileFilter.CANNOT_EXECUTE, (Path) null, true);
-            assertFiltering(CanExecuteFileFilter.CANNOT_EXECUTE, executableFile, false);
-            assertFiltering(CanExecuteFileFilter.CANNOT_EXECUTE, (File) null, true);
+        final Path executablePath = Files.createTempFile(temporaryFolder.toPath(), getClass().getSimpleName(), null);
+        final File executableFile = executablePath.toFile();
+        try (BufferedOutputStream output = new BufferedOutputStream(Files.newOutputStream(executablePath))) {
+            TestUtils.generateTestData(output, 32);
         }
+        assertTrue(executableFile.setExecutable(true));
+        assertFiltering(CanExecuteFileFilter.CAN_EXECUTE, executablePath, true);
+        assertFiltering(CanExecuteFileFilter.CAN_EXECUTE, (Path) null, false);
+        assertFiltering(CanExecuteFileFilter.CAN_EXECUTE, executableFile, true);
+        assertFiltering(CanExecuteFileFilter.CAN_EXECUTE, (File) null, false);
+        executableFile.setExecutable(false);
+        assertFiltering(CanExecuteFileFilter.CANNOT_EXECUTE, executablePath, false);
+        assertFiltering(CanExecuteFileFilter.CANNOT_EXECUTE, (Path) null, true);
+        assertFiltering(CanExecuteFileFilter.CANNOT_EXECUTE, executableFile, false);
+        assertFiltering(CanExecuteFileFilter.CANNOT_EXECUTE, (File) null, true);
     }
 
     @Test
