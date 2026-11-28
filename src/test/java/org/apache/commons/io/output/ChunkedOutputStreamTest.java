@@ -26,9 +26,9 @@ import java.nio.file.Path;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.commons.io.IOUtils;
-import org.apache.commons.io.file.TempFile;
 import org.apache.commons.lang3.ArrayFill;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /**
  * Tests {@link ChunkedOutputStream}.
@@ -64,18 +64,17 @@ class ChunkedOutputStreamTest {
     /**
      * Tests the default chunk size with a Path.
      *
+     * @param tempDir The temporary directory managed by JUnit.
      * @throws IOException Thrown on test failure.
      */
     @Test
-    void testBuildSetPath() throws IOException {
-        try (TempFile tempFile = TempFile.create("test-", ".txt")) {
-            final byte[] fill = ArrayFill.fill(new byte[IOUtils.DEFAULT_BUFFER_SIZE + 1], (byte) 'a');
-            final Path tempPath = tempFile.get();
-            try (ChunkedOutputStream chunked = ChunkedOutputStream.builder().setPath(tempPath).get()) {
-                chunked.write(fill);
-            }
-            assertArrayEquals(fill, Files.readAllBytes(tempPath));
+    void testBuildSetPath(@TempDir final Path tempDir) throws IOException {
+        final Path tempPath = Files.createTempFile(tempDir, "test-", ".txt");
+        final byte[] fill = ArrayFill.fill(new byte[IOUtils.DEFAULT_BUFFER_SIZE + 1], (byte) 'a');
+        try (ChunkedOutputStream chunked = ChunkedOutputStream.builder().setPath(tempPath).get()) {
+            chunked.write(fill);
         }
+        assertArrayEquals(fill, Files.readAllBytes(tempPath));
     }
 
     @Test
